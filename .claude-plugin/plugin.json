@@ -6,5 +6,8 @@
     "name": "carlopi",
     "url": "https://github.com/carlopi"
   },
-  "repository": "https://github.com/carlopi/duckdb-claude-skills"
+  "repository": "https://github.com/carlopi/duckdb-claude-skills",
+  "homepage": "https://duckdb.org",
+  "license": "MIT",
+  "keywords": ["duckdb", "parquet", "read-file", "read-memories", "data-exploration", "session-logs"]
 }
