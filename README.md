@@ -1,4 +1,4 @@
-# duckdb-claude-skills
+# duckdb-skills
 
 A [Claude Code](https://claude.ai/code) plugin that adds DuckDB-powered skills for data exploration and session memory.
 
