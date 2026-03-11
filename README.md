@@ -17,6 +17,22 @@ Skills will be available as `/duckdb-skills:<skill-name>` in all future sessions
 
 ## Skills
 
+### `attach-db`
+Attach a DuckDB database file for interactive querying. Explores the schema (tables, columns, row counts) and sets it as the active database for `/duckdb-skills:query`.
+
+```
+/duckdb-skills:attach-db my_analytics.duckdb
+```
+
+### `query`
+Run SQL queries against the attached database or ad-hoc against files. Accepts raw SQL or natural language questions. Uses DuckDB's Friendly SQL dialect.
+
+```
+/duckdb-skills:query FROM sales LIMIT 10
+/duckdb-skills:query "what are the top 5 customers by revenue?"
+/duckdb-skills:query FROM 'exports.csv' WHERE amount > 100
+```
+
 ### `read-file`
 Read and explore any data file — CSV, JSON, Parquet, Avro, Excel, spatial formats, and more — by filename only. Automatically resolves the path, detects the format via the [magic](https://github.com/carlopi/duckdb_magic) extension, and installs any required DuckDB extensions on the fly.
 
