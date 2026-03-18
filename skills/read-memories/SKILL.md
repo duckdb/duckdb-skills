@@ -48,8 +48,8 @@ Replace `<SEARCH_PATH>` and `<KEYWORD>` with the resolved values before running.
 If Step 2 returns more than 40 rows or the output is very large, offload the results to a temporary DuckDB file so you can query them interactively without flooding the conversation context:
 
 ```bash
-mkdir -p "$HOME/.duckdb-skills"
-duckdb "$HOME/.duckdb-skills/memories.duckdb" -c "
+mkdir -p ".duckdb-skills"
+duckdb ".duckdb-skills/memories.duckdb" -c "
 CREATE OR REPLACE TABLE memories AS
 SELECT
   regexp_extract(filename, 'projects/([^/]+)/', 1) AS project,
@@ -66,14 +66,14 @@ ORDER BY timestamp;
 Then query the table interactively to drill down:
 
 ```bash
-duckdb "$HOME/.duckdb-skills/memories.duckdb" -c "SELECT count() FROM memories;"
-duckdb "$HOME/.duckdb-skills/memories.duckdb" -c "FROM memories WHERE content ILIKE '%<narrower term>%' LIMIT 20;"
+duckdb ".duckdb-skills/memories.duckdb" -c "SELECT count() FROM memories;"
+duckdb ".duckdb-skills/memories.duckdb" -c "FROM memories WHERE content ILIKE '%<narrower term>%' LIMIT 20;"
 ```
 
 Clean up when done:
 
 ```bash
-rm -f "$HOME/.duckdb-skills/memories.duckdb"
+rm -f ".duckdb-skills/memories.duckdb"
 ```
 
 ## Step 4 — Internalize
@@ -88,5 +88,5 @@ Use this to inform your current response. Do not repeat back the raw logs to the
 
 ## Cross-skill integration
 
-- **Session state**: If `$HOME/.duckdb-skills/state.sql` exists, you can add the memories table to the session temporarily by appending an ATTACH to it — useful if the user wants to cross-reference memories with their data.
+- **Session state**: If `.duckdb-skills/state.sql` exists, you can add the memories table to the session temporarily by appending an ATTACH to it — useful if the user wants to cross-reference memories with their data.
 - **Error troubleshooting**: If DuckDB returns errors when reading JSONL logs, use `/duckdb-skills:duckdb-docs <error keywords>` to search for guidance.

@@ -12,10 +12,10 @@ You are helping the user attach a DuckDB database file for interactive querying.
 
 Database path given: `$0`
 
-The session is stored as a plain SQL file at `$HOME/.duckdb-skills/state.sql`. Any skill can use it with:
+The session is stored as a project-local SQL file at `.duckdb-skills/state.sql` (relative to the project root). Any skill can use it with:
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -c "<QUERY>"
+duckdb -init ".duckdb-skills/state.sql" -c "<QUERY>"
 ```
 
 Follow these steps in order, stopping and reporting clearly if any step fails.
@@ -79,30 +79,35 @@ SELECT count() AS row_count FROM <table_name>;
 
 Collect the column definitions and row counts for the summary.
 
-## Step 5 — Write the state file
+## Step 5 — Append to the state file
 
-Create a SQL file that restores the session. The file must be idempotent (safe to run multiple times).
+`state.sql` is a shared, accumulative init file used by all duckdb-skills. It may already contain macros, LOAD statements, secrets, or other ATTACH statements written by other skills. **Never overwrite it** — always check for duplicates and append.
 
 ```bash
-mkdir -p "$HOME/.duckdb-skills"
-cat > "$HOME/.duckdb-skills/state.sql" <<'STATESQL'
--- duckdb-skills session state
--- Generated: TIMESTAMP
-ATTACH 'RESOLVED_PATH' AS db;
-USE db;
+mkdir -p ".duckdb-skills"
+```
+
+Derive the database alias from the filename without extension (e.g. `my_data.duckdb` → `my_data`). Check if this ATTACH already exists:
+
+```bash
+grep -q "ATTACH.*RESOLVED_PATH" ".duckdb-skills/state.sql" 2>/dev/null
+```
+
+If not already present, append:
+
+```bash
+cat >> ".duckdb-skills/state.sql" <<'STATESQL'
+ATTACH IF NOT EXISTS 'RESOLVED_PATH' AS my_data;
+USE my_data;
 STATESQL
 ```
 
-Replace `RESOLVED_PATH` with the actual resolved path and `TIMESTAMP` with the current UTC time.
-
-**Important**: If there is an existing `state.sql`, read it first. If it already contains ATTACH statements, **append** the new ATTACH to the file rather than overwriting — the user may want multiple databases attached. Ask the user whether to replace or append if a state file already exists.
-
-The database alias (`AS db`) should be derived from the filename without extension (e.g. `my_data.duckdb` → `AS my_data`). If the alias would conflict with an existing one in the file, ask the user for a name.
+Replace `RESOLVED_PATH` and `my_data` with the actual values. If the alias would conflict with an existing one in the file, ask the user for a name.
 
 ## Step 6 — Verify the state file works
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -c "SHOW TABLES;"
+duckdb -init ".duckdb-skills/state.sql" -c "SHOW TABLES;"
 ```
 
 If this fails, fix the state file and retry.
