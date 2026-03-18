@@ -2,8 +2,8 @@
 name: attach-db
 description: >
   Attach a DuckDB database file for use with /duckdb-skills:query.
-  Explores the schema (tables, columns, row counts) and writes a session file
-  so subsequent queries target this database automatically.
+  Explores the schema (tables, columns, row counts) and writes a SQL state file
+  so subsequent queries can restore this session automatically via duckdb -init.
 argument-hint: <path-to-database.duckdb>
 allowed-tools: Bash
 ---
@@ -11,6 +11,12 @@ allowed-tools: Bash
 You are helping the user attach a DuckDB database file for interactive querying.
 
 Database path given: `$0`
+
+The session is stored as a plain SQL file at `$HOME/.duckdb-skills/state.sql`. Any skill can use it with:
+
+```bash
+duckdb -init "$HOME/.duckdb-skills/state.sql" -c "<QUERY>"
+```
 
 Follow these steps in order, stopping and reporting clearly if any step fails.
 
@@ -73,18 +79,40 @@ SELECT count() AS row_count FROM <table_name>;
 
 Collect the column definitions and row counts for the summary.
 
-## Step 5 — Write the session file
+## Step 5 — Write the state file
+
+Create a SQL file that restores the session. The file must be idempotent (safe to run multiple times).
 
 ```bash
 mkdir -p "$HOME/.duckdb-skills"
-printf '{"path":"%s","attached_at":"%s"}\n' "$RESOLVED_PATH" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$HOME/.duckdb-skills/active-db.json"
+cat > "$HOME/.duckdb-skills/state.sql" <<'STATESQL'
+-- duckdb-skills session state
+-- Generated: TIMESTAMP
+ATTACH 'RESOLVED_PATH' AS db;
+USE db;
+STATESQL
 ```
 
-## Step 6 — Report
+Replace `RESOLVED_PATH` with the actual resolved path and `TIMESTAMP` with the current UTC time.
+
+**Important**: If there is an existing `state.sql`, read it first. If it already contains ATTACH statements, **append** the new ATTACH to the file rather than overwriting — the user may want multiple databases attached. Ask the user whether to replace or append if a state file already exists.
+
+The database alias (`AS db`) should be derived from the filename without extension (e.g. `my_data.duckdb` → `AS my_data`). If the alias would conflict with an existing one in the file, ask the user for a name.
+
+## Step 6 — Verify the state file works
+
+```bash
+duckdb -init "$HOME/.duckdb-skills/state.sql" -c "SHOW TABLES;"
+```
+
+If this fails, fix the state file and retry.
+
+## Step 7 — Report
 
 Summarize for the user:
 
 - **Database path**: the resolved absolute path
+- **Alias**: the database alias used in the state file
 - **Tables**: name, column count, row count for each table (or note the DB is empty)
 - Confirm the database is now active for `/duckdb-skills:query`
 

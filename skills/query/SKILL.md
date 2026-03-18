@@ -11,30 +11,32 @@ You are helping the user query data using DuckDB.
 
 Input: `$@`
 
+Session state convention: `/duckdb-skills:attach-db` writes `$HOME/.duckdb-skills/state.sql` — a plain SQL file with ATTACH/USE/LOAD statements. Any skill restores the session via `duckdb -init "$HOME/.duckdb-skills/state.sql" -c "..."`.
+
 Follow these steps in order.
 
 ## Step 1 — Determine the mode
 
-Check for a session database:
+Check for a session state file:
 
 ```bash
-cat "$HOME/.duckdb-skills/active-db.json" 2>/dev/null
+cat "$HOME/.duckdb-skills/state.sql" 2>/dev/null
 ```
 
-Parse the JSON to get `DB_PATH`. Verify the file still exists:
+If the file exists, verify the databases it references are still accessible by running:
 
 ```bash
-test -f "$DB_PATH"
+duckdb -init "$HOME/.duckdb-skills/state.sql" -c "SHOW DATABASES;"
 ```
 
 Now determine the mode:
 
-- **Ad-hoc mode** if: the `--file` flag is present, or the SQL references file paths/literals (e.g. `FROM 'data.csv'`), or there is no active session.
-- **Session mode** if: there is an active session DB and the input references table names, is natural language, or is SQL without file references.
+- **Ad-hoc mode** if: the `--file` flag is present, or the SQL references file paths/literals (e.g. `FROM 'data.csv'`), or there is no state file.
+- **Session mode** if: there is a valid state file and the input references table names, is natural language, or is SQL without file references.
 
-If no session exists and no file is referenced, fall back to ad-hoc mode against `:memory:` — the user must reference files directly in their SQL.
+If no state file exists and no file is referenced, fall back to ad-hoc mode against `:memory:` — the user must reference files directly in their SQL.
 
-If the session file exists but `DB_PATH` no longer exists on disk, warn the user and fall back to ad-hoc mode.
+If the state file exists but any ATTACH in it fails, warn the user and fall back to ad-hoc mode.
 
 ## Step 2 — Check DuckDB is installed
 
@@ -51,7 +53,7 @@ If the input is natural language (not valid SQL), generate SQL using the Friendl
 In **session mode**, first retrieve the schema to inform query generation:
 
 ```bash
-duckdb "$DB_PATH" -csv -c "
+duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "
 SELECT table_name FROM duckdb_tables() ORDER BY table_name;
 "
 ```
@@ -59,7 +61,7 @@ SELECT table_name FROM duckdb_tables() ORDER BY table_name;
 Then for relevant tables:
 
 ```bash
-duckdb "$DB_PATH" -csv -c "DESCRIBE <table_name>;"
+duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "DESCRIBE <table_name>;"
 ```
 
 Use the schema context and the Friendly SQL reference to generate the most appropriate query.
@@ -72,7 +74,7 @@ consume excessive tokens when returned to this conversation.
 **Session mode** — check row counts for the tables involved:
 
 ```bash
-duckdb "$DB_PATH" -csv -c "
+duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "
 SELECT table_name, estimated_size, column_count
 FROM duckdb_tables()
 WHERE table_name IN ('<table1>', '<table2>');
@@ -122,7 +124,13 @@ If multiple files are referenced, include all paths in the `allowed_paths` list.
 **Session mode** (user-trusted database):
 
 ```bash
-duckdb "$DB_PATH" -csv <<'SQL'
+duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "<QUERY>"
+```
+
+For multi-line queries, use a heredoc with `-init`:
+
+```bash
+duckdb -init "$HOME/.duckdb-skills/state.sql" -csv <<'SQL'
 <QUERY>;
 SQL
 ```
@@ -135,6 +143,7 @@ Always use heredocs (`<<'SQL'`) for multi-line queries to avoid shell quoting is
 - **Missing extension** (e.g. `Extension "X" not loaded`): delegate to `/duckdb-skills:install-duckdb <ext>`, then retry.
 - **Table not found** (session mode): list available tables with `FROM duckdb_tables()` and suggest corrections.
 - **File not found** (ad-hoc mode): use `find "$PWD" -name "<filename>" 2>/dev/null` to locate the file and suggest the corrected path.
+- **Persistent or unclear DuckDB error**: use `/duckdb-skills:duckdb-docs <error message or relevant keywords>` to search the documentation for guidance, then apply the fix and retry.
 
 ## Step 7 — Present results
 

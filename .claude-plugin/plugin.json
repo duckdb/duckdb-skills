@@ -1,6 +1,6 @@
 {
   "name": "duckdb-claude-skills",
-  "description": "DuckDB-powered skills for Claude Code: read any data file, attach and query DuckDB databases, search past session logs, and install/update DuckDB extensions.",
+  "description": "DuckDB-powered skills for Claude Code: read any data file, attach and query DuckDB databases, search DuckDB/DuckLake docs, search past session logs, and install/update DuckDB extensions.",
   "version": "0.1.0",
   "author": {
     "name": "duckdb",
@@ -9,5 +9,5 @@
   "repository": "https://github.com/duckdb/duckdb-skills",
   "homepage": "https://duckdb.org",
   "license": "MIT",
-  "keywords": ["duckdb", "parquet", "read-file", "read-memories", "data-exploration", "session-logs", "query", "sql", "attach-db"]
+  "keywords": ["duckdb", "ducklake", "parquet", "csv", "json", "avro", "excel", "iceberg", "delta", "read-file", "read-memories", "duckdb-docs", "data-exploration", "session-logs", "query", "sql", "attach-db"]
 }

@@ -43,7 +43,40 @@ LIMIT 40;
 
 Replace `<SEARCH_PATH>` and `<KEYWORD>` with the resolved values before running.
 
-## Step 3 — Internalize
+## Step 3 — Handle large result sets
+
+If Step 2 returns more than 40 rows or the output is very large, offload the results to a temporary DuckDB file so you can query them interactively without flooding the conversation context:
+
+```bash
+mkdir -p "$HOME/.duckdb-skills"
+duckdb "$HOME/.duckdb-skills/memories.duckdb" -c "
+CREATE OR REPLACE TABLE memories AS
+SELECT
+  regexp_extract(filename, 'projects/([^/]+)/', 1) AS project,
+  timestamp::TIMESTAMPTZ AS ts,
+  message.role AS role,
+  message.content::VARCHAR AS content
+FROM read_ndjson('<SEARCH_PATH>', auto_detect=true, ignore_errors=true, filename=true)
+WHERE message::VARCHAR ILIKE '%<KEYWORD>%'
+  AND message.role IS NOT NULL
+ORDER BY timestamp;
+"
+```
+
+Then query the table interactively to drill down:
+
+```bash
+duckdb "$HOME/.duckdb-skills/memories.duckdb" -c "SELECT count() FROM memories;"
+duckdb "$HOME/.duckdb-skills/memories.duckdb" -c "FROM memories WHERE content ILIKE '%<narrower term>%' LIMIT 20;"
+```
+
+Clean up when done:
+
+```bash
+rm -f "$HOME/.duckdb-skills/memories.duckdb"
+```
+
+## Step 4 — Internalize
 
 From the results, extract:
 - Decisions made and their rationale
@@ -52,3 +85,8 @@ From the results, extract:
 - Any corrections the user made to your prior behavior
 
 Use this to inform your current response. Do not repeat back the raw logs to the user.
+
+## Cross-skill integration
+
+- **Session state**: If `$HOME/.duckdb-skills/state.sql` exists, you can add the memories table to the session temporarily by appending an ATTACH to it — useful if the user wants to cross-reference memories with their data.
+- **Error troubleshooting**: If DuckDB returns errors when reading JSONL logs, use `/duckdb-skills:duckdb-docs <error keywords>` to search for guidance.
