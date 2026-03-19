@@ -2,8 +2,8 @@
 name: duckdb-docs
 description: >
   Search DuckDB and DuckLake documentation and blog posts. Returns relevant
-  doc chunks for a question or keyword using full-text search against the
-  hosted search indexes. No local setup required — queries directly over httpfs.
+  doc chunks for a question or keyword using full-text search against a
+  locally cached index.
 argument-hint: <question or keyword>
 allowed-tools: Bash
 ---
@@ -30,20 +30,7 @@ duckdb :memory: -c "INSTALL httpfs; INSTALL fts;"
 
 If this fails, report the error and stop.
 
-## Step 3 — Resolve state directory
-
-Look for an existing state file:
-
-```bash
-STATE_DIR=""
-test -f .duckdb-skills/state.sql && STATE_DIR=".duckdb-skills"
-PROJECT_NAME="$(basename "$PWD")"
-test -f "$HOME/.duckdb-skills/$PROJECT_NAME/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
-```
-
-If `STATE_DIR` is empty, this skill can still work without state (querying remotely). But if a local cache is created in Step 5, state will be needed — ask the user the same location question as `/duckdb-skills:attach-db` at that point.
-
-## Step 4 — Choose the data source and extract search terms
+## Step 3 — Choose the data source and extract search terms
 
 The query is: `$@`
 
@@ -83,64 +70,54 @@ If the input is already a **function name or technical term** (e.g. `arg_max`, `
 
 Use the extracted terms as `SEARCH_QUERY` in the next step.
 
-## Step 5 — Check for local cache or offer to create one
+## Step 4 — Ensure local cache is fresh
 
-Check if a local copy of the docs index already exists:
+The cache lives at `$HOME/.duckdb/docs/CACHE_FILENAME` (where `CACHE_FILENAME` is `duckdb-docs.duckdb` or `ducklake-docs.duckdb` per Step 3).
+
+First, ensure the directory exists:
 
 ```bash
-test -n "$STATE_DIR" && test -f "$STATE_DIR/duckdb-docs.duckdb"
+mkdir -p "$HOME/.duckdb/docs"
 ```
 
-(Or `ducklake-docs.duckdb` for DuckLake queries.)
-
-**If a local cache exists** → check its age:
+Then check whether the cache file exists and is fresh (≤2 days old):
 
 ```bash
-CACHE_FILE="$STATE_DIR/duckdb-docs.duckdb"
-# macOS uses stat -f %m, Linux uses stat -c %Y
-MTIME=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE")
-CACHE_AGE_DAYS=$(( ( $(date +%s) - MTIME ) / 86400 ))
+CACHE_FILE="$HOME/.duckdb/docs/CACHE_FILENAME"
+if [ -f "$CACHE_FILE" ]; then
+    MTIME=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE")
+    CACHE_AGE_DAYS=$(( ( $(date +%s) - MTIME ) / 86400 ))
+else
+    CACHE_AGE_DAYS=999
+fi
+echo "Cache age: $CACHE_AGE_DAYS days"
 ```
 
-- **2 days old or less** → use it directly (skip to Step 6).
-- **Older than 2 days** → silently refresh it by deleting the file and re-running the COPY FROM DATABASE below. No need to ask the user.
+**If `CACHE_AGE_DAYS` ≤ 2** → skip to Step 5.
 
-**If no local cache exists** → this is the first docs query. **You MUST ask the user the following question before proceeding — do not skip this step:**
-
-> To avoid repeated HTTP calls to the remote docs index, I can create a local copy in your project's state directory. This makes future searches faster and works offline. Would you like me to cache it locally?
-
-**Wait for the user's response.** If the user agrees (and `STATE_DIR` is empty, ask for their preferred location first):
+**Otherwise** (stale or missing) → fetch the index:
 
 ```bash
-duckdb :memory: -c "
+duckdb -c "
 LOAD httpfs;
 LOAD fts;
-ATTACH 'INDEX_URL' AS remote_docs (READ_ONLY);
-ATTACH '$STATE_DIR/duckdb-docs.duckdb' AS local_docs;
-COPY FROM DATABASE remote_docs TO local_docs;
+ATTACH 'REMOTE_URL' AS remote (READ_ONLY);
+ATTACH '$HOME/.duckdb/docs/CACHE_FILENAME.tmp' AS tmp;
+COPY FROM DATABASE remote TO tmp;
+DETACH remote;
+DETACH tmp;
+COPY FROM read_blob('$HOME/.duckdb/docs/CACHE_FILENAME.tmp') TO '$HOME/.duckdb/docs/CACHE_FILENAME' (FORMAT BINARY);
 "
+rm -f "$HOME/.duckdb/docs/CACHE_FILENAME.tmp"
 ```
 
-Then add the ATTACH to `state.sql` so it's available to all skills:
+Replace `REMOTE_URL` and `CACHE_FILENAME` per Step 3. If the fetch fails (network error), report the error and stop.
+
+## Step 5 — Search the docs
 
 ```bash
-grep -q "duckdb-docs.duckdb" "$STATE_DIR/state.sql" 2>/dev/null || cat >> "$STATE_DIR/state.sql" <<'SQL'
+duckdb "$HOME/.duckdb/docs/CACHE_FILENAME" -readonly -json -c "
 LOAD fts;
-ATTACH IF NOT EXISTS 'STATE_DIR/duckdb-docs.duckdb' AS docs (READ_ONLY);
-SQL
-```
-
-Replace `STATE_DIR` with the actual resolved path.
-
-**If the user declines** → query remotely (the original behavior).
-
-## Step 6 — Search the docs
-
-**With local cache** (use state.sql):
-
-```bash
-duckdb -init "$STATE_DIR/state.sql" -json -c "
-USE docs;
 SELECT
     chunk_id, page_title, section, breadcrumb, url, version, text,
     fts_main_docs_chunks.match_bm25(chunk_id, 'SEARCH_QUERY') AS score
@@ -152,37 +129,17 @@ LIMIT 8;
 "
 ```
 
-**Without local cache** (remote query):
-
-```bash
-duckdb :memory: -json <<'SQL'
-LOAD httpfs;
-LOAD fts;
-ATTACH 'INDEX_URL' AS docs (READ_ONLY);
-USE docs;
-SELECT
-    chunk_id, page_title, section, breadcrumb, url, version, text,
-    fts_main_docs_chunks.match_bm25(chunk_id, 'SEARCH_QUERY') AS score
-FROM docs_chunks
-WHERE score IS NOT NULL
-  AND version = 'VERSION'
-ORDER BY score DESC
-LIMIT 8;
-SQL
-```
-
-Replace `INDEX_URL`, `SEARCH_QUERY`, and `VERSION` per Step 4. Remove the `AND version = 'VERSION'` line if searching across all versions.
+Replace `CACHE_FILENAME`, `SEARCH_QUERY`, and `VERSION` per Step 3. Remove the `AND version = 'VERSION'` line if searching across all versions.
 
 If the user's question could benefit from both DuckDB docs and blog results, run two queries (one with `version = 'stable'`, one with `version = 'blog'`) or omit the version filter entirely.
 
-## Step 7 — Handle errors
+## Step 6 — Handle errors
 
-- **Extension not installed** (`httpfs` or `fts` not found): run `duckdb :memory: -c "INSTALL httpfs; INSTALL fts;"` and retry Step 6.
+- **Extension not installed** (`httpfs` or `fts` not found): run `duckdb :memory: -c "INSTALL httpfs; INSTALL fts;"` and retry.
 - **ATTACH fails / network unreachable**: inform the user that the docs index is unavailable and suggest checking their internet connection. The DuckDB index is hosted at `https://duckdb.org/data/docs-search.duckdb` and the DuckLake index at `https://ducklake.select/data/docs-search.duckdb`.
-- **Local cache stale**: the cache auto-refreshes after 2 days, but if results seem outdated sooner, delete the local file and re-run the query to force a refresh.
-- **No results** (all scores NULL or empty result set): try broadening the query — drop the least specific term, or try a single-word version of the query — then retry Step 6. If still no results, tell the user no matching documentation was found and suggest visiting https://duckdb.org/docs or https://ducklake.select/docs directly.
+- **No results** (all scores NULL or empty result set): try broadening the query — drop the least specific term, or try a single-word version of the query — then retry Step 5. If still no results, tell the user no matching documentation was found and suggest visiting https://duckdb.org/docs or https://ducklake.select/docs directly.
 
-## Step 8 — Present results
+## Step 7 — Present results
 
 For each result chunk returned (ordered by score descending), format as:
 
