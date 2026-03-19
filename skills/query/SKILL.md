@@ -20,8 +20,9 @@ Look for an existing state file in either location:
 ```bash
 STATE_DIR=""
 test -f .duckdb-skills/state.sql && STATE_DIR=".duckdb-skills"
-PROJECT_NAME="$(basename "$PWD")"
-test -f "$HOME/.duckdb-skills/$PROJECT_NAME/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+PROJECT_ID="$(echo "$PROJECT_ROOT" | tr '/' '-')"
+test -f "$HOME/.duckdb-skills/$PROJECT_ID/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_ID"
 ```
 
 If found, verify the databases it references are still accessible:

@@ -46,8 +46,9 @@ Look for an existing state file:
 ```bash
 STATE_DIR=""
 test -f .duckdb-skills/state.sql && STATE_DIR=".duckdb-skills"
-PROJECT_NAME="$(basename "$PWD")"
-test -f "$HOME/.duckdb-skills/$PROJECT_NAME/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+PROJECT_ID="$(echo "$PROJECT_ROOT" | tr '/' '-')"
+test -f "$HOME/.duckdb-skills/$PROJECT_ID/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_ID"
 ```
 
 If the file is **local** and `STATE_DIR` is set, skip to Step 3. If the file is **local** and no state exists, skip to Step 3 (no state needed for local reads).
@@ -55,7 +56,7 @@ If the file is **local** and `STATE_DIR` is set, skip to Step 3. If the file is 
 If the file is **remote**, state is needed for secrets/extensions. If `STATE_DIR` is empty, ask the user where to store state (same options as `/duckdb-skills:attach-db`):
 
 > 1. **In the project directory** (`.duckdb-skills/`) — optionally gitignored
-> 2. **In your home directory** (`~/.duckdb-skills/<project>/`)
+> 2. **In your home directory** (`~/.duckdb-skills/<project-id>/`)
 
 Create the chosen directory, then set up access and **persist it to state.sql**:
 

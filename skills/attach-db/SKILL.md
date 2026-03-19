@@ -83,9 +83,10 @@ Check if a state file already exists in either location:
 # Option 1: in the project directory
 test -f .duckdb-skills/state.sql && STATE_DIR=".duckdb-skills"
 
-# Option 2: in the home directory, scoped by project name
-PROJECT_NAME="$(basename "$PWD")"
-test -f "$HOME/.duckdb-skills/$PROJECT_NAME/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
+# Option 2: in the home directory, scoped by project root path
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+PROJECT_ID="$(echo "$PROJECT_ROOT" | tr '/' '-')"
+test -f "$HOME/.duckdb-skills/$PROJECT_ID/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_ID"
 ```
 
 If **neither exists**, ask the user:
@@ -93,7 +94,7 @@ If **neither exists**, ask the user:
 > Where would you like to store the DuckDB session state for this project?
 >
 > 1. **In the project directory** (`.duckdb-skills/state.sql`) — colocated with the project, easy to find. You can choose to gitignore it.
-> 2. **In your home directory** (`~/.duckdb-skills/<project>/state.sql`) — keeps the project directory clean.
+> 2. **In your home directory** (`~/.duckdb-skills/<project-id>/state.sql`) — keeps the project directory clean.
 
 Based on their choice:
 
@@ -109,8 +110,9 @@ echo '.duckdb-skills/' >> .gitignore
 
 **Option 2:**
 ```bash
-PROJECT_NAME="$(basename "$PWD")"
-STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+PROJECT_ID="$(echo "$PROJECT_ROOT" | tr '/' '-')"
+STATE_DIR="$HOME/.duckdb-skills/$PROJECT_ID"
 mkdir -p "$STATE_DIR"
 ```
 
