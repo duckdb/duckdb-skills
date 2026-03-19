@@ -93,7 +93,17 @@ test -n "$STATE_DIR" && test -f "$STATE_DIR/duckdb-docs.duckdb"
 
 (Or `ducklake-docs.duckdb` for DuckLake queries.)
 
-**If a local cache exists** → use it directly (skip to Step 6 with the local path).
+**If a local cache exists** → check its age:
+
+```bash
+CACHE_FILE="$STATE_DIR/duckdb-docs.duckdb"
+# macOS uses stat -f %m, Linux uses stat -c %Y
+MTIME=$(stat -f %m "$CACHE_FILE" 2>/dev/null || stat -c %Y "$CACHE_FILE")
+CACHE_AGE_DAYS=$(( ( $(date +%s) - MTIME ) / 86400 ))
+```
+
+- **2 days old or less** → use it directly (skip to Step 6).
+- **Older than 2 days** → silently refresh it by deleting the file and re-running the COPY FROM DATABASE below. No need to ask the user.
 
 **If no local cache exists** → this is the first docs query. Ask the user:
 
@@ -169,7 +179,7 @@ If the user's question could benefit from both DuckDB docs and blog results, run
 
 - **Extension not installed** (`httpfs` or `fts` not found): run `duckdb :memory: -c "INSTALL httpfs; INSTALL fts;"` and retry Step 6.
 - **ATTACH fails / network unreachable**: inform the user that the docs index is unavailable and suggest checking their internet connection. The DuckDB index is hosted at `https://duckdb.org/data/docs-search.duckdb` and the DuckLake index at `https://ducklake.select/data/docs-search.duckdb`.
-- **Local cache stale**: if results seem outdated, suggest refreshing the cache by deleting the local file and re-running the query (it will re-download).
+- **Local cache stale**: the cache auto-refreshes after 2 days, but if results seem outdated sooner, delete the local file and re-run the query to force a refresh.
 - **No results** (all scores NULL or empty result set): try broadening the query — drop the least specific term, or try a single-word version of the query — then retry Step 6. If still no results, tell the user no matching documentation was found and suggest visiting https://duckdb.org/docs or https://ducklake.select/docs directly.
 
 ## Step 8 — Present results
