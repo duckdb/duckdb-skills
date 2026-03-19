@@ -11,28 +11,29 @@ You are helping the user query data using DuckDB.
 
 Input: `$@`
 
-Session state convention: `/duckdb-skills:attach-db` writes `$HOME/.duckdb-skills/state.sql` — a plain SQL file with ATTACH/USE/LOAD statements. Any skill restores the session via `duckdb -init "$HOME/.duckdb-skills/state.sql" -c "..."`.
-
 Follow these steps in order.
 
-## Step 1 — Determine the mode
+## Step 1 — Resolve state and determine the mode
 
-Check for a session state file:
+Look for an existing state file in either location:
 
 ```bash
-cat "$HOME/.duckdb-skills/state.sql" 2>/dev/null
+STATE_DIR=""
+test -f .duckdb-skills/state.sql && STATE_DIR=".duckdb-skills"
+PROJECT_NAME="$(basename "$PWD")"
+test -f "$HOME/.duckdb-skills/$PROJECT_NAME/state.sql" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
 ```
 
-If the file exists, verify the databases it references are still accessible by running:
+If found, verify the databases it references are still accessible:
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -c "SHOW DATABASES;"
+duckdb -init "$STATE_DIR/state.sql" -c "SHOW DATABASES;"
 ```
 
 Now determine the mode:
 
-- **Ad-hoc mode** if: the `--file` flag is present, or the SQL references file paths/literals (e.g. `FROM 'data.csv'`), or there is no state file.
-- **Session mode** if: there is a valid state file and the input references table names, is natural language, or is SQL without file references.
+- **Ad-hoc mode** if: the `--file` flag is present, or the SQL references file paths/literals (e.g. `FROM 'data.csv'`), or `STATE_DIR` is empty.
+- **Session mode** if: `STATE_DIR` is set and the input references table names, is natural language, or is SQL without file references.
 
 If no state file exists and no file is referenced, fall back to ad-hoc mode against `:memory:` — the user must reference files directly in their SQL.
 
@@ -53,7 +54,7 @@ If the input is natural language (not valid SQL), generate SQL using the Friendl
 In **session mode**, first retrieve the schema to inform query generation:
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "
+duckdb -init "$STATE_DIR/state.sql" -csv -c "
 SELECT table_name FROM duckdb_tables() ORDER BY table_name;
 "
 ```
@@ -61,7 +62,7 @@ SELECT table_name FROM duckdb_tables() ORDER BY table_name;
 Then for relevant tables:
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "DESCRIBE <table_name>;"
+duckdb -init "$STATE_DIR/state.sql" -csv -c "DESCRIBE <table_name>;"
 ```
 
 Use the schema context and the Friendly SQL reference to generate the most appropriate query.
@@ -74,7 +75,7 @@ consume excessive tokens when returned to this conversation.
 **Session mode** — check row counts for the tables involved:
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "
+duckdb -init "$STATE_DIR/state.sql" -csv -c "
 SELECT table_name, estimated_size, column_count
 FROM duckdb_tables()
 WHERE table_name IN ('<table1>', '<table2>');
@@ -124,13 +125,13 @@ If multiple files are referenced, include all paths in the `allowed_paths` list.
 **Session mode** (user-trusted database):
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -csv -c "<QUERY>"
+duckdb -init "$STATE_DIR/state.sql" -csv -c "<QUERY>"
 ```
 
 For multi-line queries, use a heredoc with `-init`:
 
 ```bash
-duckdb -init "$HOME/.duckdb-skills/state.sql" -csv <<'SQL'
+duckdb -init "$STATE_DIR/state.sql" -csv <<'SQL'
 <QUERY>;
 SQL
 ```

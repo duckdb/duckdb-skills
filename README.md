@@ -22,7 +22,7 @@ This registers the GitHub repo as a marketplace and installs the plugin. Skills 
 ## Skills
 
 ### `attach-db`
-Attach a DuckDB database file for interactive querying. Explores the schema (tables, columns, row counts) and writes a SQL state file (`~/.duckdb-skills/state.sql`) so all other skills can restore the session automatically.
+Attach a DuckDB database file for interactive querying. Explores the schema (tables, columns, row counts) and writes a SQL state file so all other skills can restore the session automatically. You can choose to store state in the project directory (`.duckdb-skills/state.sql`) or in your home directory (`~/.duckdb-skills/<project>/state.sql`).
 
 ```
 /duckdb-skills:attach-db my_analytics.duckdb
