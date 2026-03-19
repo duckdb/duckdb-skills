@@ -19,6 +19,15 @@ Add the repository as a plugin source and install:
 
 This registers the GitHub repo as a marketplace and installs the plugin. Skills will be available as `/duckdb-skills:<skill-name>` in all future sessions.
 
+### Updating
+
+To pull the latest version, update the marketplace first and then the plugin:
+
+```
+/plugin marketplace update duckdb-skills
+/plugin update duckdb-skills@duckdb-skills
+```
+
 ## Skills
 
 ### `attach-db`
