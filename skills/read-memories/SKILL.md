@@ -52,8 +52,9 @@ Resolve the state directory first:
 ```bash
 STATE_DIR=""
 test -d .duckdb-skills && STATE_DIR=".duckdb-skills"
-PROJECT_NAME="$(basename "$PWD")"
-test -d "$HOME/.duckdb-skills/$PROJECT_NAME" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_NAME"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+PROJECT_ID="$(echo "$PROJECT_ROOT" | tr '/' '-')"
+test -d "$HOME/.duckdb-skills/$PROJECT_ID" && STATE_DIR="$HOME/.duckdb-skills/$PROJECT_ID"
 # Fall back to project-local if neither exists
 test -z "$STATE_DIR" && STATE_DIR=".duckdb-skills" && mkdir -p "$STATE_DIR"
 ```
@@ -98,5 +99,5 @@ Use this to inform your current response. Do not repeat back the raw logs to the
 
 ## Cross-skill integration
 
-- **Session state**: If a `state.sql` exists (in `.duckdb-skills/` or `$HOME/.duckdb-skills/<project>/`), you can add the memories table to the session temporarily by appending an ATTACH to it — useful if the user wants to cross-reference memories with their data.
+- **Session state**: If a `state.sql` exists (in `.duckdb-skills/` or `$HOME/.duckdb-skills/<project-id>/`), you can add the memories table to the session temporarily by appending an ATTACH to it — useful if the user wants to cross-reference memories with their data.
 - **Error troubleshooting**: If DuckDB returns errors when reading JSONL logs, use `/duckdb-skills:duckdb-docs <error keywords>` to search for guidance.
