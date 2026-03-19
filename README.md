@@ -40,10 +40,12 @@ Run SQL queries against attached databases or ad-hoc against files. Accepts raw 
 ```
 
 ### `read-file`
-Read and explore any data file — CSV, JSON, Parquet, Avro, Excel, spatial formats, and more — by filename only. Automatically resolves the path, detects the format via the [magic](https://github.com/carlopi/duckdb_magic) extension, and installs any required DuckDB extensions on the fly. Suggests `query` for further exploration.
+Read and explore any data file — CSV, JSON, Parquet, Avro, Excel, spatial, SQLite, Jupyter notebooks, and more — locally or from remote storage (S3, GCS, Azure, HTTPS). Auto-detects the format by file extension using a built-in `read_any` table macro. Suggests `query` for further exploration.
 
 ```
 /duckdb-skills:read-file variants.parquet what columns does it have?
+/duckdb-skills:read-file s3://my-bucket/data.parquet describe the schema
+/duckdb-skills:read-file https://example.com/data.csv how many rows?
 ```
 
 ### `duckdb-docs`
@@ -65,9 +67,19 @@ Search past Claude Code session logs to recover context from previous conversati
 Install or update DuckDB extensions. Supports `name@repo` syntax for community extensions and a `--update` flag that also checks whether your DuckDB CLI is on the latest stable version.
 
 ```
-/duckdb-skills:install-duckdb spatial magic@community httpfs
+/duckdb-skills:install-duckdb spatial httpfs
+/duckdb-skills:install-duckdb gcs@community
 /duckdb-skills:install-duckdb --update
 ```
+
+## Session state
+
+All skills share a single `state.sql` file per project — a plain SQL file containing ATTACH/USE/LOAD statements, secrets, and macros. When state is first needed, you'll be asked where to store it:
+
+1. **In the project directory** (`.duckdb-skills/state.sql`) — colocated with the project, optionally gitignored
+2. **In your home directory** (`~/.duckdb-skills/<project>/state.sql`) — keeps the repo clean
+
+The file is append-only and idempotent. Any skill restores the session via `duckdb -init state.sql`.
 
 ## Local development
 
@@ -93,6 +105,14 @@ You can test individual skills directly:
 ```
 
 **Prerequisites:** DuckDB CLI must be installed. If it isn't, the skills will offer to install it via `/duckdb-skills:install-duckdb`.
+
+## How the skills work together
+
+Skills reference each other where it makes sense:
+
+- `read-file` suggests `query` for follow-up exploration and `attach-db` for persisting large files
+- `query`, `read-file`, and `read-memories` all use `duckdb-docs` to troubleshoot DuckDB errors automatically
+- All skills share the same `state.sql` — secrets and macros set up by `read-file` are reused by `query`, and databases attached by `attach-db` are available everywhere
 
 ## Reporting issues & suggestions
 
