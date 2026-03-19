@@ -56,7 +56,7 @@ First, list all tables:
 
 ```bash
 duckdb "$RESOLVED_PATH" -csv -c "
-SELECT table_name, table_type, estimated_size
+SELECT table_name, estimated_size
 FROM duckdb_tables()
 ORDER BY table_name;
 "
