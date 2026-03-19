@@ -72,13 +72,35 @@ SQL
 
 ### GCS
 
+DuckDB's built-in GCS support uses the S3 API, which requires [HMAC keys](https://console.cloud.google.com/storage/settings;tab=interoperability) — not native GCP credentials. Explain this to the user and offer two options:
+
+**Option A — HMAC keys** (built-in, no extra extension): The user must have HMAC keys exposed as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables, or provide them directly.
+
 ```bash
 duckdb :memory: -c "INSTALL httpfs;"
-grep -q "__default_gcs" "$STATE_DIR/state.sql" 2>/dev/null || cat >> "$STATE_DIR/state.sql" <<'SQL'
+grep -q "__default_gcs" "$STATE_DIR/state.sql" 2>/dev/null || cat >> "$STATE_DIR/state.sql" <<SQL
 LOAD httpfs;
-CREATE SECRET IF NOT EXISTS __default_gcs (TYPE GCS, PROVIDER credential_chain);
+CREATE SECRET IF NOT EXISTS __default_gcs (TYPE GCS, KEY_ID '${HMAC_KEY_ID}', SECRET '${HMAC_SECRET}');
 SQL
 ```
+
+Ask the user for their HMAC key ID and secret. If they already have them as env vars, `credential_chain` works:
+
+```sql
+CREATE SECRET IF NOT EXISTS __default_gcs (TYPE GCS, PROVIDER credential_chain);
+```
+
+**Option B — Native GCP credentials** via the [duckdb-gcs](https://github.com/northpolesec/duckdb-gcs) community extension: Uses `gcloud auth application-default login` directly — no HMAC keys needed.
+
+```bash
+duckdb :memory: -c "INSTALL gcs FROM community;"
+grep -q "LOAD gcs;" "$STATE_DIR/state.sql" 2>/dev/null || cat >> "$STATE_DIR/state.sql" <<'SQL'
+LOAD gcs;
+CREATE SECRET IF NOT EXISTS __default_gcp (TYPE GCP, PROVIDER credential_chain);
+SQL
+```
+
+Note: this extension uses `gs://` and `gcs://` URLs (same as built-in) but also supports `gcss://` to force its usage over the built-in handler.
 
 ### Azure
 
