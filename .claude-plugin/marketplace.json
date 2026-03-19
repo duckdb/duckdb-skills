@@ -9,7 +9,7 @@
       "name": "duckdb-skills",
       "source": "./",
       "description": "DuckDB-powered skills for Claude Code: read any data file, attach and query DuckDB databases, search DuckDB/DuckLake docs, search past session logs, and install/update DuckDB extensions.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "homepage": "https://duckdb.org",
       "repository": "https://github.com/duckdb/duckdb-skills",
       "license": "MIT",
