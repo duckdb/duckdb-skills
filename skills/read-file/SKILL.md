@@ -82,14 +82,18 @@ SQL
 
 ### Azure
 
+Azure `credential_chain` requires `ACCOUNT_NAME` unless the URI is fully qualified (e.g. `abfss://container@account.dfs.core.windows.net/path`). For short-form URIs (`az://container/path`), ask the user for their storage account name.
+
 ```bash
 duckdb :memory: -c "INSTALL httpfs; INSTALL azure;"
-grep -q "__default_azure" "$STATE_DIR/state.sql" 2>/dev/null || cat >> "$STATE_DIR/state.sql" <<'SQL'
+grep -q "__default_azure" "$STATE_DIR/state.sql" 2>/dev/null || cat >> "$STATE_DIR/state.sql" <<SQL
 LOAD httpfs;
 LOAD azure;
-CREATE SECRET IF NOT EXISTS __default_azure (TYPE AZURE, PROVIDER credential_chain);
+CREATE SECRET IF NOT EXISTS __default_azure (TYPE AZURE, PROVIDER credential_chain, ACCOUNT_NAME '${ACCOUNT_NAME}');
 SQL
 ```
+
+Replace `${ACCOUNT_NAME}` with the user's storage account name. If the URI is fully qualified, `ACCOUNT_NAME` can be omitted.
 
 ### HTTPS
 
