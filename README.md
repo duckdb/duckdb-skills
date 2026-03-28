@@ -14,6 +14,8 @@ Add the repository as a plugin source and install:
 
 ```
 /plugin marketplace add duckdb/duckdb-skills
+```
+```
 /plugin install duckdb-skills@duckdb-skills
 ```
 
