@@ -70,7 +70,7 @@ FROM read_any('RESOLVED_PATH') LIMIT 20;
 ```
 
 **If this fails:**
-- **`duckdb: command not found`** → invoke `/duckdb-skills:install-duckdb` and retry.
+- **`duckdb: command not found`** → invoke the `install-duckdb` skill and retry.
 - **Missing extension** (e.g. spatial files, xlsx, sqlite) → retry with `INSTALL spatial; LOAD spatial;` or `INSTALL sqlite_scanner; LOAD sqlite_scanner;` prepended before the macro.
 - **Wrong reader / parse error** → use the correct `read_*` function directly instead of `read_any`.
 
