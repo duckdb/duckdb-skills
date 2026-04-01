@@ -134,7 +134,7 @@ messages AS (
 SELECT project
 FROM messages
 WHERE '${keyword_sql}' <> ''
-  AND content ILIKE '%' || '${keyword_sql}' || '%'
+  AND contains(lower(content), lower('${keyword_sql}'))
   AND ($predicate)
 ORDER BY project;
 SQL
@@ -151,7 +151,7 @@ query_claude_projects() {
 SELECT regexp_extract(filename, 'projects/([^/]+)/', 1) AS project
 FROM read_ndjson('$TEST_HOME/.claude/projects/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
 WHERE '${keyword_sql}' <> ''
-  AND message::VARCHAR ILIKE '%' || '${keyword_sql}' || '%'
+  AND contains(lower(message::VARCHAR), lower('${keyword_sql}'))
   AND message.role IS NOT NULL
   AND ($predicate)
 ORDER BY project;
@@ -199,6 +199,8 @@ write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-main-subdi
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-near.jsonl" "$REPO_UNDERSCORE_NEAR_SUBDIR" "needle underscore near"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-keyword.jsonl" "$REPO_MAIN" "o'hare keyword"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-path.jsonl" "$REPO_QUOTE_SUBDIR" "needle quote path"
+write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/literal-percent.jsonl" "$REPO_MAIN" "100% literal"
+write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/wildcard-percent.jsonl" "$REPO_WORKTREE" "100X broadening"
 
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_MAIN")/main.jsonl" "needle main"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_SUBDIR")/subdir.jsonl" "needle main subdir"
@@ -206,6 +208,8 @@ write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_WORKT
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$UNRELATED_REPO")/unrelated.jsonl" "needle unrelated"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_QUOTE_MAIN")/quoted-path.jsonl" "needle quote path"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$CLAUDE_COLLISION_OTHER")/collision.jsonl" "needle collision"
+write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_MAIN")/literal-percent.jsonl" "100% literal"
+write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_WORKTREE")/wildcard-percent.jsonl" "100X broadening"
 
 CODEX_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_SUBDIR")" | normalize_project_rows)"
 EXPECTED_CODEX="$(printf '%s\n' "$REPO_MAIN" "$REPO_SUBDIR" "$REPO_WORKTREE" | sort)"
@@ -307,6 +311,30 @@ if [ -n "$EMPTY_KEYWORD_CLAUDE" ]; then
     echo "Expected no matches"
     echo "Got:"
     printf '%s\n' "$EMPTY_KEYWORD_CLAUDE"
+    exit 1
+fi
+
+LITERAL_PERCENT_CODEX="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_SUBDIR")" "100%" | normalize_project_rows)"
+EXPECTED_LITERAL_PERCENT_CODEX="$(printf '%s\n' "$REPO_MAIN")"
+
+if [ "$LITERAL_PERCENT_CODEX" != "$EXPECTED_LITERAL_PERCENT_CODEX" ]; then
+    echo "ERROR: Codex query treated % in the keyword as a wildcard"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_LITERAL_PERCENT_CODEX"
+    echo "Got:"
+    printf '%s\n' "$LITERAL_PERCENT_CODEX"
+    exit 1
+fi
+
+LITERAL_PERCENT_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" "100%" | normalize_project_rows)"
+EXPECTED_LITERAL_PERCENT_CLAUDE="$(printf '%s\n' "$(slugify_project "$REPO_MAIN")")"
+
+if [ "$LITERAL_PERCENT_CLAUDE" != "$EXPECTED_LITERAL_PERCENT_CLAUDE" ]; then
+    echo "ERROR: Claude query treated % in the keyword as a wildcard"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_LITERAL_PERCENT_CLAUDE"
+    echo "Got:"
+    printf '%s\n' "$LITERAL_PERCENT_CLAUDE"
     exit 1
 fi
 
