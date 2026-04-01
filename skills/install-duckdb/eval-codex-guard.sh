@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-LOG_FILE="$(mktemp /tmp/duckdb-skills-codex-guard.XXXXXX)"
+LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/duckdb-skills-codex-guard.XXXXXX")"
 
 cleanup() {
     rm -f "$LOG_FILE"

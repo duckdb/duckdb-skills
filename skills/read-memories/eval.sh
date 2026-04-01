@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-TMP_ROOT="$(mktemp -d /tmp/duckdb-skills-read-memories.XXXXXX)"
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/duckdb-skills-read-memories.XXXXXX")"
 TEST_HOME="$TMP_ROOT/home-o'hare"
 REPO_MAIN="$TMP_ROOT/repo-main"
 REPO_SUBDIR="$REPO_MAIN/subdir"

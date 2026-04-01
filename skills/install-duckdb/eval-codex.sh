@@ -16,7 +16,7 @@ KEEP_TEMP="${KEEP_TEMP:-0}"
 PASS=0
 FAIL=0
 TIMINGS=()
-TMP_ROOT=$(mktemp -d /tmp/duckdb-skills-codex-eval.XXXXXX)
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/duckdb-skills-codex-eval.XXXXXX")"
 
 cleanup() {
     if [ "$KEEP_TEMP" = "1" ]; then
