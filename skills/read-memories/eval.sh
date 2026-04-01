@@ -107,7 +107,7 @@ EOF
 
 query_codex_projects() {
     local predicate="$1"
-    local keyword="${2:-needle}"
+    local keyword="${2-needle}"
     local keyword_sql
 
     keyword_sql="$(escape_sql_literal "$keyword")"
@@ -133,7 +133,8 @@ messages AS (
 )
 SELECT project
 FROM messages
-WHERE content ILIKE '%' || '${keyword_sql}' || '%'
+WHERE '${keyword_sql}' <> ''
+  AND content ILIKE '%' || '${keyword_sql}' || '%'
   AND ($predicate)
 ORDER BY project;
 SQL
@@ -141,7 +142,7 @@ SQL
 
 query_claude_projects() {
     local predicate="$1"
-    local keyword="${2:-needle}"
+    local keyword="${2-needle}"
     local keyword_sql
 
     keyword_sql="$(escape_sql_literal "$keyword")"
@@ -149,7 +150,8 @@ query_claude_projects() {
     HOME="$TEST_HOME" duckdb :memory: -csv <<SQL
 SELECT regexp_extract(filename, 'projects/([^/]+)/', 1) AS project
 FROM read_ndjson('$TEST_HOME/.claude/projects/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
-WHERE message::VARCHAR ILIKE '%' || '${keyword_sql}' || '%'
+WHERE '${keyword_sql}' <> ''
+  AND message::VARCHAR ILIKE '%' || '${keyword_sql}' || '%'
   AND message.role IS NOT NULL
   AND ($predicate)
 ORDER BY project;
@@ -285,6 +287,26 @@ if [ "$CLAUDE_QUOTED_PATH_PROJECTS" != "$EXPECTED_CLAUDE_QUOTED_PATH" ]; then
     printf '%s\n' "$EXPECTED_CLAUDE_QUOTED_PATH"
     echo "Got:"
     printf '%s\n' "$CLAUDE_QUOTED_PATH_PROJECTS"
+    exit 1
+fi
+
+EMPTY_KEYWORD_CODEX="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_SUBDIR")" "" | normalize_project_rows)"
+
+if [ -n "$EMPTY_KEYWORD_CODEX" ]; then
+    echo "ERROR: Codex query matched rows for an empty keyword"
+    echo "Expected no matches"
+    echo "Got:"
+    printf '%s\n' "$EMPTY_KEYWORD_CODEX"
+    exit 1
+fi
+
+EMPTY_KEYWORD_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" "" | normalize_project_rows)"
+
+if [ -n "$EMPTY_KEYWORD_CLAUDE" ]; then
+    echo "ERROR: Claude query matched rows for an empty keyword"
+    echo "Expected no matches"
+    echo "Got:"
+    printf '%s\n' "$EMPTY_KEYWORD_CLAUDE"
     exit 1
 fi
 
