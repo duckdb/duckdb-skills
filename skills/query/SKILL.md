@@ -46,7 +46,7 @@ If the state file exists but any ATTACH in it fails, warn the user and fall back
 command -v duckdb
 ```
 
-If not found, delegate to `/duckdb-skills:install-duckdb` and then continue.
+If not found, delegate to `duckdb-skills:install-duckdb` and then continue.
 
 ## Step 3 — Generate SQL if needed
 
@@ -142,10 +142,10 @@ Always use heredocs (`<<'SQL'`) for multi-line queries to avoid shell quoting is
 ## Step 6 — Handle errors
 
 - **Syntax error**: show the error, suggest a corrected query, and re-run.
-- **Missing extension** (e.g. `Extension "X" not loaded`): delegate to `/duckdb-skills:install-duckdb <ext>`, then retry.
+- **Missing extension** (e.g. `Extension "X" not loaded`): delegate to `duckdb-skills:install-duckdb <ext>`, then retry.
 - **Table not found** (session mode): list available tables with `FROM duckdb_tables()` and suggest corrections.
 - **File not found** (ad-hoc mode): use `find "$PWD" -name "<filename>" 2>/dev/null` to locate the file and suggest the corrected path.
-- **Persistent or unclear DuckDB error**: use `/duckdb-skills:duckdb-docs <error message or relevant keywords>` to search the documentation for guidance, then apply the fix and retry.
+- **Persistent or unclear DuckDB error**: use `duckdb-skills:duckdb-docs <error message or relevant keywords>` to search the documentation for guidance, then apply the fix and retry.
 
 ## Step 7 — Present results
 

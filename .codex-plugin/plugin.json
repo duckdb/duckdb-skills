@@ -1,0 +1,50 @@
+{
+  "name": "duckdb-skills",
+  "version": "0.2.1",
+  "description": "DuckDB-powered skills for Codex: read any data file, attach and query DuckDB databases, search DuckDB and DuckLake docs, search past Codex or Claude Code session logs, and install or update DuckDB extensions.",
+  "author": {
+    "name": "duckdb",
+    "url": "https://github.com/duckdb"
+  },
+  "homepage": "https://duckdb.org",
+  "repository": "https://github.com/duckdb/duckdb-skills",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "duckdb",
+    "ducklake",
+    "parquet",
+    "csv",
+    "json",
+    "avro",
+    "excel",
+    "iceberg",
+    "delta",
+    "read-file",
+    "read-memories",
+    "duckdb-docs",
+    "data-exploration",
+    "session-logs",
+    "query",
+    "sql",
+    "attach-db"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DuckDB Skills",
+    "shortDescription": "DuckDB-powered data exploration skills",
+    "longDescription": "Read local or remote data files, attach and query DuckDB databases, search DuckDB and DuckLake docs, and recover Codex or Claude Code session context with DuckDB-powered skills.",
+    "developerName": "duckdb",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://duckdb.org",
+    "defaultPrompt": [
+      "Use DuckDB Skills to inspect a local Parquet file.",
+      "Use DuckDB Skills to query an attached DuckDB database.",
+      "Use DuckDB Skills to search the DuckDB docs for window functions."
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 ---
 name: attach-db
 description: >
-  Attach a DuckDB database file for use with /duckdb-skills:query.
+  Attach a DuckDB database file for use with duckdb-skills:query.
   Explores the schema (tables, columns, row counts) and writes a SQL state file
   so subsequent queries can restore this session automatically via duckdb -init.
 argument-hint: <path-to-database.duckdb>
@@ -39,7 +39,7 @@ test -f "$RESOLVED_PATH"
 command -v duckdb
 ```
 
-If not found, delegate to `/duckdb-skills:install-duckdb` and then continue.
+If not found, delegate to `duckdb-skills:install-duckdb` and then continue.
 
 ## Step 3 — Validate the database
 
@@ -153,6 +153,6 @@ Summarize for the user:
 - **Alias**: the database alias used in the state file
 - **State file**: the resolved `STATE_DIR/state.sql` path
 - **Tables**: name, column count, row count for each table (or note the DB is empty)
-- Confirm the database is now active for `/duckdb-skills:query`
+- Confirm the database is now active for `duckdb-skills:query`
 
 If the database is empty, suggest creating tables or importing data.
