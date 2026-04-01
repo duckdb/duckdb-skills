@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TMP_ROOT="$(mktemp -d /tmp/duckdb-skills-read-memories.XXXXXX)"
-TEST_HOME="$TMP_ROOT/home"
+TEST_HOME="$TMP_ROOT/home-o'hare"
 REPO_MAIN="$TMP_ROOT/repo-main"
 REPO_SUBDIR="$REPO_MAIN/subdir"
 REPO_WORKTREE="$TMP_ROOT/repo-worktree"
@@ -34,6 +34,16 @@ slugify_project() {
 
 escape_sql_literal() {
     printf '%s' "$1" | sed "s/'/''/g"
+}
+
+json_escape() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//\"/\\\"}
+    value=${value//$'\n'/\\n}
+    value=${value//$'\r'/\\r}
+    value=${value//$'\t'/\\t}
+    printf '%s' "$value"
 }
 
 build_codex_scope_predicate() {
@@ -87,21 +97,26 @@ write_codex_session() {
     local file="$1"
     local cwd="$2"
     local content="$3"
+    local cwd_json content_json
 
     mkdir -p "$(dirname "$file")"
+    cwd_json="$(json_escape "$cwd")"
+    content_json="$(json_escape "$content")"
     cat >"$file" <<EOF
-{"timestamp":"2026-03-31T12:00:00Z","type":"session_meta","payload":{"cwd":"$cwd"}}
-{"timestamp":"2026-03-31T12:01:00Z","type":"response_item","payload":{"role":"assistant","content":[{"type":"output_text","text":"$content"}]}}
+{"timestamp":"2026-03-31T12:00:00Z","type":"session_meta","payload":{"cwd":"$cwd_json"}}
+{"timestamp":"2026-03-31T12:01:00Z","type":"response_item","payload":{"role":"assistant","content":[{"type":"output_text","text":"$content_json"}]}}
 EOF
 }
 
 write_claude_session() {
     local file="$1"
     local content="$2"
+    local content_json
 
     mkdir -p "$(dirname "$file")"
+    content_json="$(json_escape "$content")"
     cat >"$file" <<EOF
-{"timestamp":"2026-03-31T12:00:00Z","message":{"role":"assistant","content":"$content"}}
+{"timestamp":"2026-03-31T12:00:00Z","message":{"role":"assistant","content":"$content_json"}}
 EOF
 }
 
@@ -109,13 +124,15 @@ query_codex_projects() {
     local predicate="$1"
     local keyword="${2-needle}"
     local keyword_sql
+    local test_home_sql
 
     keyword_sql="$(escape_sql_literal "$keyword")"
+    test_home_sql="$(escape_sql_literal "$TEST_HOME")"
 
     HOME="$TEST_HOME" duckdb :memory: -csv <<SQL
 WITH raw AS (
   SELECT filename, timestamp, type, payload
-  FROM read_ndjson('$TEST_HOME/.codex/sessions/*/*/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
+  FROM read_ndjson('${test_home_sql}/.codex/sessions/*/*/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
 ),
 meta AS (
   SELECT filename, json_extract_string(payload, '$.cwd') AS project
@@ -144,14 +161,17 @@ query_claude_projects() {
     local predicate="$1"
     local keyword="${2-needle}"
     local keyword_sql
+    local test_home_sql
 
     keyword_sql="$(escape_sql_literal "$keyword")"
+    test_home_sql="$(escape_sql_literal "$TEST_HOME")"
 
     HOME="$TEST_HOME" duckdb :memory: -csv <<SQL
 SELECT regexp_extract(filename, 'projects/([^/]+)/', 1) AS project
-FROM read_ndjson('$TEST_HOME/.claude/projects/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
+FROM read_ndjson('${test_home_sql}/.claude/projects/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
 WHERE '${keyword_sql}' <> ''
-  AND contains(lower(message::VARCHAR), lower('${keyword_sql}'))
+  AND message.content IS NOT NULL
+  AND contains(lower(message.content::VARCHAR), lower('${keyword_sql}'))
   AND message.role IS NOT NULL
   AND ($predicate)
 ORDER BY project;
@@ -199,6 +219,7 @@ write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-main-subdi
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-near.jsonl" "$REPO_UNDERSCORE_NEAR_SUBDIR" "needle underscore near"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-keyword.jsonl" "$REPO_MAIN" "o'hare keyword"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-path.jsonl" "$REPO_QUOTE_SUBDIR" "needle quote path"
+write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-content.jsonl" "$REPO_MAIN" "double \"quote\" keyword"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/literal-percent.jsonl" "$REPO_MAIN" "100% literal"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/wildcard-percent.jsonl" "$REPO_WORKTREE" "100X broadening"
 
@@ -208,6 +229,7 @@ write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_WORKT
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$UNRELATED_REPO")/unrelated.jsonl" "needle unrelated"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_QUOTE_MAIN")/quoted-path.jsonl" "needle quote path"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$CLAUDE_COLLISION_OTHER")/collision.jsonl" "needle collision"
+write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_MAIN")/quoted-content.jsonl" "double \"quote\" keyword"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_MAIN")/literal-percent.jsonl" "100% literal"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_WORKTREE")/wildcard-percent.jsonl" "100X broadening"
 
@@ -294,6 +316,30 @@ if [ "$CLAUDE_QUOTED_PATH_PROJECTS" != "$EXPECTED_CLAUDE_QUOTED_PATH" ]; then
     exit 1
 fi
 
+DOUBLE_QUOTE_CODEX="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_MAIN")" 'double "quote"' | normalize_project_rows)"
+EXPECTED_DOUBLE_QUOTE_CODEX="$(printf '%s\n' "$REPO_MAIN")"
+
+if [ "$DOUBLE_QUOTE_CODEX" != "$EXPECTED_DOUBLE_QUOTE_CODEX" ]; then
+    echo "ERROR: Codex query did not preserve double quotes in JSON fixture content"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_DOUBLE_QUOTE_CODEX"
+    echo "Got:"
+    printf '%s\n' "$DOUBLE_QUOTE_CODEX"
+    exit 1
+fi
+
+DOUBLE_QUOTE_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_MAIN")" 'double "quote"' | normalize_project_rows)"
+EXPECTED_DOUBLE_QUOTE_CLAUDE="$(printf '%s\n' "$(slugify_project "$REPO_MAIN")")"
+
+if [ "$DOUBLE_QUOTE_CLAUDE" != "$EXPECTED_DOUBLE_QUOTE_CLAUDE" ]; then
+    echo "ERROR: Claude query did not preserve double quotes in JSON fixture content"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_DOUBLE_QUOTE_CLAUDE"
+    echo "Got:"
+    printf '%s\n' "$DOUBLE_QUOTE_CLAUDE"
+    exit 1
+fi
+
 EMPTY_KEYWORD_CODEX="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_SUBDIR")" "" | normalize_project_rows)"
 
 if [ -n "$EMPTY_KEYWORD_CODEX" ]; then
@@ -335,6 +381,16 @@ if [ "$LITERAL_PERCENT_CLAUDE" != "$EXPECTED_LITERAL_PERCENT_CLAUDE" ]; then
     printf '%s\n' "$EXPECTED_LITERAL_PERCENT_CLAUDE"
     echo "Got:"
     printf '%s\n' "$LITERAL_PERCENT_CLAUDE"
+    exit 1
+fi
+
+ASSISTANT_FALSE_POSITIVE_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" "assistant" | normalize_project_rows)"
+
+if [ -n "$ASSISTANT_FALSE_POSITIVE_CLAUDE" ]; then
+    echo "ERROR: Claude query matched role metadata instead of message content"
+    echo "Expected no matches"
+    echo "Got:"
+    printf '%s\n' "$ASSISTANT_FALSE_POSITIVE_CLAUDE"
     exit 1
 fi
 
