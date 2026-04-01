@@ -16,7 +16,7 @@ if env -u TARGET_HOME bash "$ROOT/skills/install-duckdb/eval-codex.sh" >"$LOG_FI
     exit 1
 fi
 
-if ! rg -q 'TARGET_HOME must point to an initialized Codex home' "$LOG_FILE"; then
+if ! grep -q 'TARGET_HOME must point to an initialized Codex home' "$LOG_FILE"; then
     echo "ERROR: eval-codex.sh did not fail with the expected TARGET_HOME guidance"
     cat "$LOG_FILE"
     exit 1

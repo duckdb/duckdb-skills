@@ -91,9 +91,7 @@ To pull the latest version, update the marketplace first and then the plugin:
 
 ## Skills
 
-Examples below use the Claude Code slash-command form. In Codex, invoke the same installed skill
-through the plugin by dropping the leading slash, for example `duckdb-skills:query SELECT 42` or `duckdb-skills:read-file
-variants.parquet what columns does it have?`.
+Examples below use the Claude Code slash-command form. In Codex, invoke the same installed skill through the plugin by dropping the leading slash, for example `duckdb-skills:query SELECT 42` or `duckdb-skills:read-file variants.parquet what columns does it have?`.
 
 ### `attach-db`
 Attach a DuckDB database file for interactive querying. Explores the schema (tables, columns, row counts) and writes a SQL state file so all other skills can restore the session automatically. You can choose to store state in the project directory (`.duckdb-skills/state.sql`) or in your home directory (`~/.duckdb-skills/<project>/state.sql`).

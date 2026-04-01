@@ -12,6 +12,8 @@ REPO_UNDERSCORE_MAIN="$TMP_ROOT/my_repo"
 REPO_UNDERSCORE_SUBDIR="$REPO_UNDERSCORE_MAIN/subdir"
 REPO_UNDERSCORE_NEAR="$TMP_ROOT/myXrepo"
 REPO_UNDERSCORE_NEAR_SUBDIR="$REPO_UNDERSCORE_NEAR/subdir"
+REPO_QUOTE_MAIN="$TMP_ROOT/repo-o'hare"
+REPO_QUOTE_SUBDIR="$REPO_QUOTE_MAIN/subdir"
 CLAUDE_COLLISION_ROOT="$TMP_ROOT/foo-bar"
 CLAUDE_COLLISION_OTHER="$TMP_ROOT/foo/bar-baz"
 
@@ -30,6 +32,10 @@ slugify_project() {
     echo "$1" | sed 's|[/_]|-|g'
 }
 
+escape_sql_literal() {
+    printf '%s' "$1" | sed "s/'/''/g"
+}
+
 build_codex_scope_predicate() {
     local cwd="$1"
     local project_root
@@ -38,9 +44,11 @@ build_codex_scope_predicate() {
     project_root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")"
 
     while IFS= read -r root; do
+        local root_sql
         [ -z "$root" ] && continue
+        root_sql="$(escape_sql_literal "$root")"
         [ -n "$predicate" ] && predicate="$predicate OR "
-        predicate="${predicate}(project = '${root}' OR starts_with(project, '${root}' || '/'))"
+        predicate="${predicate}(project = '${root_sql}' OR starts_with(project, '${root_sql}' || '/'))"
     done < <(
         {
             printf '%s\n' "$project_root"
@@ -59,11 +67,12 @@ build_claude_scope_predicate() {
     project_root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")"
 
     while IFS= read -r root; do
-        local slug
+        local slug slug_sql
         [ -z "$root" ] && continue
         slug="$(slugify_project "$root")"
+        slug_sql="$(escape_sql_literal "$slug")"
         [ -n "$predicate" ] && predicate="$predicate OR "
-        predicate="${predicate}(project = '${slug}')"
+        predicate="${predicate}(project = '${slug_sql}')"
     done < <(
         {
             printf '%s\n' "$project_root"
@@ -98,6 +107,10 @@ EOF
 
 query_codex_projects() {
     local predicate="$1"
+    local keyword="${2:-needle}"
+    local keyword_sql
+
+    keyword_sql="$(escape_sql_literal "$keyword")"
 
     HOME="$TEST_HOME" duckdb :memory: -csv <<SQL
 WITH raw AS (
@@ -120,7 +133,7 @@ messages AS (
 )
 SELECT project
 FROM messages
-WHERE content ILIKE '%needle%'
+WHERE content ILIKE '%' || '${keyword_sql}' || '%'
   AND ($predicate)
 ORDER BY project;
 SQL
@@ -128,20 +141,29 @@ SQL
 
 query_claude_projects() {
     local predicate="$1"
+    local keyword="${2:-needle}"
+    local keyword_sql
+
+    keyword_sql="$(escape_sql_literal "$keyword")"
 
     HOME="$TEST_HOME" duckdb :memory: -csv <<SQL
 SELECT regexp_extract(filename, 'projects/([^/]+)/', 1) AS project
 FROM read_ndjson('$TEST_HOME/.claude/projects/*/*.jsonl', auto_detect=true, ignore_errors=true, filename=true)
-WHERE message::VARCHAR ILIKE '%needle%'
+WHERE message::VARCHAR ILIKE '%' || '${keyword_sql}' || '%'
   AND message.role IS NOT NULL
   AND ($predicate)
 ORDER BY project;
 SQL
 }
 
+normalize_project_rows() {
+    tail -n +2 | sed 's/^"//; s/"$//'
+}
+
 mkdir -p "$TEST_HOME/.codex/sessions/2026/03/31" "$TEST_HOME/.claude/projects"
 mkdir -p "$REPO_MAIN" "$REPO_SUBDIR" "$UNRELATED_REPO"
 mkdir -p "$REPO_UNDERSCORE_MAIN" "$REPO_UNDERSCORE_SUBDIR" "$REPO_UNDERSCORE_NEAR_SUBDIR"
+mkdir -p "$REPO_QUOTE_MAIN" "$REPO_QUOTE_SUBDIR"
 mkdir -p "$CLAUDE_COLLISION_ROOT" "$CLAUDE_COLLISION_OTHER"
 
 git -C "$REPO_MAIN" init -q
@@ -152,6 +174,7 @@ git -C "$REPO_MAIN" add .gitignore
 git -C "$REPO_MAIN" commit -q -m "init"
 git -C "$REPO_MAIN" worktree add -q "$REPO_WORKTREE"
 git -C "$REPO_UNDERSCORE_MAIN" init -q
+git -C "$REPO_QUOTE_MAIN" init -q
 
 REPO_MAIN="$(cd "$REPO_MAIN" && pwd -P)"
 REPO_SUBDIR="$(cd "$REPO_SUBDIR" && pwd -P)"
@@ -161,6 +184,8 @@ REPO_UNDERSCORE_MAIN="$(cd "$REPO_UNDERSCORE_MAIN" && pwd -P)"
 REPO_UNDERSCORE_SUBDIR="$(cd "$REPO_UNDERSCORE_SUBDIR" && pwd -P)"
 REPO_UNDERSCORE_NEAR="$(cd "$REPO_UNDERSCORE_NEAR" && pwd -P)"
 REPO_UNDERSCORE_NEAR_SUBDIR="$(cd "$REPO_UNDERSCORE_NEAR_SUBDIR" && pwd -P)"
+REPO_QUOTE_MAIN="$(cd "$REPO_QUOTE_MAIN" && pwd -P)"
+REPO_QUOTE_SUBDIR="$(cd "$REPO_QUOTE_SUBDIR" && pwd -P)"
 CLAUDE_COLLISION_ROOT="$(cd "$CLAUDE_COLLISION_ROOT" && pwd -P)"
 CLAUDE_COLLISION_OTHER="$(cd "$CLAUDE_COLLISION_OTHER" && pwd -P)"
 
@@ -170,14 +195,17 @@ write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/worktree.jsonl" "$REP
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/unrelated.jsonl" "$UNRELATED_REPO" "needle unrelated"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-main-subdir.jsonl" "$REPO_UNDERSCORE_SUBDIR" "needle underscore main"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-near.jsonl" "$REPO_UNDERSCORE_NEAR_SUBDIR" "needle underscore near"
+write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-keyword.jsonl" "$REPO_MAIN" "o'hare keyword"
+write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-path.jsonl" "$REPO_QUOTE_SUBDIR" "needle quote path"
 
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_MAIN")/main.jsonl" "needle main"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_SUBDIR")/subdir.jsonl" "needle main subdir"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_WORKTREE")/worktree.jsonl" "needle worktree"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$UNRELATED_REPO")/unrelated.jsonl" "needle unrelated"
+write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$REPO_QUOTE_MAIN")/quoted-path.jsonl" "needle quote path"
 write_claude_session "$TEST_HOME/.claude/projects/$(slugify_project "$CLAUDE_COLLISION_OTHER")/collision.jsonl" "needle collision"
 
-CODEX_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_SUBDIR")" | tail -n +2)"
+CODEX_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_SUBDIR")" | normalize_project_rows)"
 EXPECTED_CODEX="$(printf '%s\n' "$REPO_MAIN" "$REPO_SUBDIR" "$REPO_WORKTREE" | sort)"
 
 if [ "$CODEX_PROJECTS" != "$EXPECTED_CODEX" ]; then
@@ -189,7 +217,7 @@ if [ "$CODEX_PROJECTS" != "$EXPECTED_CODEX" ]; then
     exit 1
 fi
 
-CLAUDE_PROJECTS="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" | tail -n +2)"
+CLAUDE_PROJECTS="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" | normalize_project_rows)"
 EXPECTED_CLAUDE="$(printf '%s\n' "$(slugify_project "$REPO_MAIN")" "$(slugify_project "$REPO_WORKTREE")" | sort)"
 
 if [ "$CLAUDE_PROJECTS" != "$EXPECTED_CLAUDE" ]; then
@@ -201,7 +229,7 @@ if [ "$CLAUDE_PROJECTS" != "$EXPECTED_CLAUDE" ]; then
     exit 1
 fi
 
-CLAUDE_COLLISION_PROJECTS="$(query_claude_projects "$(build_claude_scope_predicate "$CLAUDE_COLLISION_ROOT")" | tail -n +2)"
+CLAUDE_COLLISION_PROJECTS="$(query_claude_projects "$(build_claude_scope_predicate "$CLAUDE_COLLISION_ROOT")" | normalize_project_rows)"
 EXPECTED_CLAUDE_COLLISION=""
 
 if [ "$CLAUDE_COLLISION_PROJECTS" != "$EXPECTED_CLAUDE_COLLISION" ]; then
@@ -212,7 +240,7 @@ if [ "$CLAUDE_COLLISION_PROJECTS" != "$EXPECTED_CLAUDE_COLLISION" ]; then
     exit 1
 fi
 
-UNDERSCORE_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_UNDERSCORE_SUBDIR")" | tail -n +2)"
+UNDERSCORE_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_UNDERSCORE_SUBDIR")" | normalize_project_rows)"
 EXPECTED_UNDERSCORE="$(printf '%s\n' "$REPO_UNDERSCORE_SUBDIR")"
 
 if [ "$UNDERSCORE_PROJECTS" != "$EXPECTED_UNDERSCORE" ]; then
@@ -221,6 +249,42 @@ if [ "$UNDERSCORE_PROJECTS" != "$EXPECTED_UNDERSCORE" ]; then
     printf '%s\n' "$EXPECTED_UNDERSCORE"
     echo "Got:"
     printf '%s\n' "$UNDERSCORE_PROJECTS"
+    exit 1
+fi
+
+QUOTED_KEYWORD_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_MAIN")" "o'hare" | normalize_project_rows)"
+EXPECTED_QUOTED_KEYWORD="$(printf '%s\n' "$REPO_MAIN")"
+
+if [ "$QUOTED_KEYWORD_PROJECTS" != "$EXPECTED_QUOTED_KEYWORD" ]; then
+    echo "ERROR: Codex keyword search did not handle single quotes"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_QUOTED_KEYWORD"
+    echo "Got:"
+    printf '%s\n' "$QUOTED_KEYWORD_PROJECTS"
+    exit 1
+fi
+
+QUOTED_PATH_PROJECTS="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_QUOTE_SUBDIR")" | normalize_project_rows)"
+EXPECTED_QUOTED_PATH="$(printf '%s\n' "$REPO_QUOTE_SUBDIR")"
+
+if [ "$QUOTED_PATH_PROJECTS" != "$EXPECTED_QUOTED_PATH" ]; then
+    echo "ERROR: Codex --here scope did not handle a quoted project path"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_QUOTED_PATH"
+    echo "Got:"
+    printf '%s\n' "$QUOTED_PATH_PROJECTS"
+    exit 1
+fi
+
+CLAUDE_QUOTED_PATH_PROJECTS="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_QUOTE_MAIN")" | normalize_project_rows)"
+EXPECTED_CLAUDE_QUOTED_PATH="$(printf '%s\n' "$(slugify_project "$REPO_QUOTE_MAIN")")"
+
+if [ "$CLAUDE_QUOTED_PATH_PROJECTS" != "$EXPECTED_CLAUDE_QUOTED_PATH" ]; then
+    echo "ERROR: Claude --here scope did not handle a quoted project path"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_CLAUDE_QUOTED_PATH"
+    echo "Got:"
+    printf '%s\n' "$CLAUDE_QUOTED_PATH_PROJECTS"
     exit 1
 fi
 
