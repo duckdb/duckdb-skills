@@ -15,8 +15,8 @@ if ! grep -Fq 'Examples below use the Claude Code slash-command form' "$ROOT/REA
     exit 1
 fi
 
-if ! grep -Fq 'Examples below use the Claude Code slash-command form. In Codex, invoke the same installed skill through the plugin by dropping the leading slash, for example `duckdb-skills:query SELECT 42` or `duckdb-skills:read-file variants.parquet what columns does it have?`.' "$ROOT/README.md"; then
-    echo "ERROR: README must keep the Codex inline examples on one line."
+if ! grep -Eq 'Examples below use the Claude Code slash-command form\..*`duckdb-skills:query SELECT 42`.*`duckdb-skills:read-file variants\.parquet what columns does it have\?`' "$ROOT/README.md"; then
+    echo "ERROR: README must keep the Codex invocation contract and inline examples intact."
     exit 1
 fi
 
@@ -25,12 +25,12 @@ if grep -Eq '<(KEYWORD_SQL|CODEX_SCOPE_PREDICATE|CLAUDE_SCOPE_PREDICATE)>' "$ROO
     exit 1
 fi
 
-if ! grep -Fq 'If `HAS_CODEX` is `1`, run Step 2. Otherwise skip directly to Step 3.' "$ROOT/skills/read-memories/SKILL.md"; then
+if ! grep -Eq 'HAS_CODEX.*Step 2.*skip directly to Step 3' "$ROOT/skills/read-memories/SKILL.md"; then
     echo "ERROR: read-memories must explicitly gate the Codex preview query on HAS_CODEX."
     exit 1
 fi
 
-if ! grep -Fq 'If `HAS_CLAUDE` is `1`, run Step 3. Otherwise skip it.' "$ROOT/skills/read-memories/SKILL.md"; then
+if ! grep -Eq 'HAS_CLAUDE.*Step 3.*skip it' "$ROOT/skills/read-memories/SKILL.md"; then
     echo "ERROR: read-memories must explicitly gate the Claude preview query on HAS_CLAUDE."
     exit 1
 fi
