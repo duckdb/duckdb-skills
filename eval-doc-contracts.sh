@@ -20,6 +20,11 @@ if ! grep -Fq 'Examples below use the Claude Code slash-command form. In Codex, 
     exit 1
 fi
 
+if grep -Eq '<(KEYWORD_SQL|CODEX_SCOPE_PREDICATE|CLAUDE_SCOPE_PREDICATE)>' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories should interpolate shell variables directly instead of leaving placeholder tokens in the SQL snippets."
+    exit 1
+fi
+
 if ! grep -Fq 'TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh' "$ROOT/README.md"; then
     echo "ERROR: README must require an explicit TARGET_HOME for the Codex eval path."
     exit 1
