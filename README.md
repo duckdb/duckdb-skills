@@ -91,8 +91,8 @@ To pull the latest version, update the marketplace first and then the plugin:
 
 ## Skills
 
-Examples below use the Claude Code slash-command form. In Codex, invoke the same skill names
-through the plugin, for example `duckdb-skills:query SELECT 42` or `duckdb-skills:read-file
+Examples below use the Claude Code slash-command form. In Codex, invoke the same installed skill
+through the plugin by dropping the leading slash, for example `duckdb-skills:query SELECT 42` or `duckdb-skills:read-file
 variants.parquet what columns does it have?`.
 
 ### `attach-db`
@@ -189,16 +189,16 @@ it, following the official
 [Build plugins](https://developers.openai.com/codex/plugins/build) guide. The plugin manifest is
 already included at `.codex-plugin/plugin.json`, and the skills live under `./skills/`.
 
-For a repository-local smoke test of the Codex install path, first install the plugin in Codex and
-then run:
+For a repository-local smoke test of the Codex install path, first install the plugin in Codex,
+point `TARGET_HOME` at that initialized Codex home, and then run:
 
 ```bash
-bash skills/install-duckdb/eval-codex.sh
+TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh
 ```
 
 This exercises `duckdb-skills:install-duckdb` through `codex exec` against the target Codex home.
-If you want isolation, point `TARGET_HOME` at a disposable Codex home where the plugin is already
-installed.
+The eval uses that home for plugin resolution and extension install/update checks, so use a
+disposable Codex home if you want isolation.
 
 ## How the skills work together
 

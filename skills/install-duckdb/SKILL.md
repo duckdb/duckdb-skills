@@ -27,7 +27,7 @@ If not found, tell the user:
 > - Linux:   `curl -fsSL https://install.duckdb.org | sh`
 > - Windows: `winget install DuckDB.cli`
 >
-> Then re-run `duckdb-skills:install-duckdb`.
+> Then re-run the `install-duckdb` skill.
 
 Stop if DuckDB is not found.
 

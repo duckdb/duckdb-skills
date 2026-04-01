@@ -6,13 +6,12 @@
 # duckdb-skills installed through /plugins and enabled in config.
 #
 # Usage:
-#   bash skills/install-duckdb/eval-codex.sh
 #   TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh
 #   KEEP_TEMP=1 TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh
 
 PLUGIN_DIR="${PLUGIN_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 CODEX_BIN="${CODEX_BIN:-codex}"
-TARGET_HOME="${TARGET_HOME:-$HOME}"
+TARGET_HOME="${TARGET_HOME:-}"
 KEEP_TEMP="${KEEP_TEMP:-0}"
 PASS=0
 FAIL=0
@@ -157,6 +156,11 @@ eval_version_case() {
 
 trap cleanup EXIT
 
+if [ -z "$TARGET_HOME" ]; then
+    echo "ERROR: TARGET_HOME must point to an initialized Codex home."
+    echo "       Example: TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh"
+    exit 1
+fi
 if ! command -v "$CODEX_BIN" &>/dev/null; then
     echo "ERROR: '${CODEX_BIN}' CLI not found."
     exit 1

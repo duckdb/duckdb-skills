@@ -13,7 +13,7 @@ You are helping the user read and analyze a data file using DuckDB.
 Filename given: `$0`
 Question: `${1:-describe the data}`
 
-## Step 1 - Read it
+## Step 1 — Read it
 
 `RESOLVED_PATH` is `$0`. If the user gave a bare filename (no `/`), resolve it to a full path with `find` first.
 
@@ -70,11 +70,11 @@ FROM read_any('RESOLVED_PATH') LIMIT 20;
 ```
 
 **If this fails:**
-- **`duckdb: command not found`** -> invoke `/duckdb-skills:install-duckdb` and retry.
-- **Missing extension** (e.g. spatial files, xlsx, sqlite) -> retry with `INSTALL spatial; LOAD spatial;` or `INSTALL sqlite_scanner; LOAD sqlite_scanner;` prepended before the macro.
-- **Wrong reader / parse error** -> use the correct `read_*` function directly instead of `read_any`.
+- **`duckdb: command not found`** → invoke `/duckdb-skills:install-duckdb` and retry.
+- **Missing extension** (e.g. spatial files, xlsx, sqlite) → retry with `INSTALL spatial; LOAD spatial;` or `INSTALL sqlite_scanner; LOAD sqlite_scanner;` prepended before the macro.
+- **Wrong reader / parse error** → use the correct `read_*` function directly instead of `read_any`.
 
-## Step 2 - Answer
+## Step 2 — Answer
 
 Using the schema, row count, and sample rows, answer:
 

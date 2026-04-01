@@ -3,19 +3,19 @@ name: read-memories
 description: >
   Search past Codex or Claude Code session logs to recover your own context.
   Invoke this proactively when you need to recall past decisions, patterns,
-  or unresolved work - either across all projects or scoped to the current one.
+  or unresolved work — either across all projects or scoped to the current one.
 argument-hint: <keyword> [--here]
 allowed-tools: Bash
 ---
 
 Use this to recover your own context from past sessions. Do NOT narrate the
-process to the user - silently run the query, absorb the results, and continue
+process to the user — silently run the query, absorb the results, and continue
 with enriched context.
 
 `$0` is the keyword to search for.
 Pass `--here` as a second argument (`$1`) to scope the search to the current project only.
 
-## Step 1 - Discover available log sources and project scope
+## Step 1 — Discover available log sources and project scope
 
 ```bash
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
@@ -69,7 +69,7 @@ fi
 - If `HAS_CODEX` is `1`, run Step 2. Otherwise skip directly to Step 3.
 - If `HAS_CLAUDE` is `1`, run Step 3. Otherwise skip it.
 
-## Step 2 - Query Codex sessions (preview first, if available)
+## Step 2 — Query Codex sessions (preview first, if available)
 
 ```bash
 duckdb :memory: -c "
@@ -119,7 +119,7 @@ This first pass intentionally returns bounded previews only. If the previews are
 Step 5. If you need the full message bodies or there are too many relevant hits to inspect safely in
 the conversation, use Step 4 instead of widening this SELECT in place.
 
-## Step 3 - Query Claude Code sessions (preview first, if available)
+## Step 3 — Query Claude Code sessions (preview first, if available)
 
 ```bash
 duckdb :memory: -c "
@@ -145,7 +145,7 @@ LIMIT 20;
 
 If both Codex and Claude Code logs exist, run both source queries and merge the relevant findings.
 
-## Step 4 - Handle large result sets
+## Step 4 — Handle large result sets
 
 If a source has many matches, or the preview rows above are not enough to answer the question,
 offload the full results to a temporary DuckDB file so you can query them interactively without
@@ -197,7 +197,7 @@ Clean up when done:
 rm -f "$STATE_DIR/memories.duckdb"
 ```
 
-## Step 5 - Internalize
+## Step 5 — Internalize
 
 From the results, extract:
 - Decisions made and their rationale
@@ -209,5 +209,5 @@ Use this to inform your current response. Do not repeat back the raw logs to the
 
 ## Cross-skill integration
 
-- **Session state**: If a `state.sql` exists (in `.duckdb-skills/` or `$HOME/.duckdb-skills/<project-id>/`), you can add the memories table to the session temporarily by appending an ATTACH to it - useful if the user wants to cross-reference memories with their data.
+- **Session state**: If a `state.sql` exists (in `.duckdb-skills/` or `$HOME/.duckdb-skills/<project-id>/`), you can add the memories table to the session temporarily by appending an ATTACH to it — useful if the user wants to cross-reference memories with their data.
 - **Error troubleshooting**: If DuckDB returns errors when reading JSONL logs, use the `duckdb-docs` skill to search for guidance.
