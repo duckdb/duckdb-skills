@@ -132,8 +132,8 @@ Search DuckDB and DuckLake documentation and blog posts using full-text search a
 
 ### `read-memories`
 Search past Codex or Claude Code session logs to recover context from previous conversations —
-decisions made, patterns established, open TODOs. Offloads large result sets to a temporary DuckDB
-file for interactive drill-down.
+decisions made, patterns established, open TODOs. Returns bounded previews first, then offloads
+full drill-down to a temporary DuckDB file when needed.
 
 ```
 /duckdb-skills:read-memories duckdb --here
@@ -188,6 +188,17 @@ For Codex, clone or copy the plugin into a local plugins directory and point a m
 it, following the official
 [Build plugins](https://developers.openai.com/codex/plugins/build) guide. The plugin manifest is
 already included at `.codex-plugin/plugin.json`, and the skills live under `./skills/`.
+
+For a repository-local smoke test of the Codex install path, first install the plugin in Codex and
+then run:
+
+```bash
+bash skills/install-duckdb/eval-codex.sh
+```
+
+This exercises `duckdb-skills:install-duckdb` through `codex exec` against the target Codex home.
+If you want isolation, point `TARGET_HOME` at a disposable Codex home where the plugin is already
+installed.
 
 ## How the skills work together
 

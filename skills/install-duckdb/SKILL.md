@@ -2,7 +2,7 @@
 name: install-duckdb
 description: >
   Install or update DuckDB extensions. Each argument is either a plain
-  extension name (installs from core) or name@repo (e.g. magic@community).
+  extension name (installs from core) or name@repo (e.g. gcs@community).
   Pass --update to update extensions instead of installing.
 argument-hint: "[--update] [ext1 ext2@repo ext3 ...]"
 allowed-tools: Bash

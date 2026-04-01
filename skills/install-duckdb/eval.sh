@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# End-to-end evaluations for the install-duckdb skill.
+# End-to-end evaluations for the install-duckdb skill via Claude Code.
 # Runs the skill via `claude --print` and verifies extensions are actually loadable.
+# For Codex coverage, use `bash skills/install-duckdb/eval-codex.sh`.
 #
 # Prerequisites: claude CLI and duckdb must be in PATH and claude must be authenticated.
 #
@@ -68,12 +69,12 @@ eval_case "Install json"               "json"                      json
 
 echo ""
 echo "--- Extension with @repo ---"
-eval_case "Install magic@community"    "magic@community"           magic
+eval_case "Install gcs@community"      "gcs@community"             gcs
 
 echo ""
 echo "--- Multiple extensions ---"
 eval_case "Install spatial + httpfs"   "spatial httpfs"            spatial httpfs
-eval_case "Install spatial + magic"    "spatial magic@community"   spatial magic
+eval_case "Install spatial + gcs"      "spatial gcs@community"     spatial gcs
 
 echo ""
 echo "--- Update mode ---"
