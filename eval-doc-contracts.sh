@@ -25,6 +25,16 @@ if grep -Eq '<(KEYWORD_SQL|CODEX_SCOPE_PREDICATE|CLAUDE_SCOPE_PREDICATE)>' "$ROO
     exit 1
 fi
 
+if ! grep -Fq 'If `HAS_CODEX` is `1`, run Step 2. Otherwise skip directly to Step 3.' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories must explicitly gate the Codex preview query on HAS_CODEX."
+    exit 1
+fi
+
+if ! grep -Fq 'If `HAS_CLAUDE` is `1`, run Step 3. Otherwise skip it.' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories must explicitly gate the Claude preview query on HAS_CLAUDE."
+    exit 1
+fi
+
 if ! grep -Fq 'TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh' "$ROOT/README.md"; then
     echo "ERROR: README must require an explicit TARGET_HOME for the Codex eval path."
     exit 1

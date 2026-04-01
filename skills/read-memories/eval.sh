@@ -108,6 +108,23 @@ write_codex_session() {
 EOF
 }
 
+write_codex_multichunk_session() {
+    local file="$1"
+    local cwd="$2"
+    local first_content="$3"
+    local second_content="$4"
+    local cwd_json first_json second_json
+
+    mkdir -p "$(dirname "$file")"
+    cwd_json="$(json_escape "$cwd")"
+    first_json="$(json_escape "$first_content")"
+    second_json="$(json_escape "$second_content")"
+    cat >"$file" <<EOF
+{"timestamp":"2026-03-31T12:00:00Z","type":"session_meta","payload":{"cwd":"$cwd_json"}}
+{"timestamp":"2026-03-31T12:01:00Z","type":"response_item","payload":{"role":"assistant","content":[{"type":"input_text","text":"$first_json"},{"type":"input_text","text":"$second_json"}]}}
+EOF
+}
+
 write_claude_session() {
     local file="$1"
     local content="$2"
@@ -141,12 +158,17 @@ meta AS (
 ),
 messages AS (
   SELECT
+    filename,
     COALESCE(meta.project, '(unknown)') AS project,
-    json_extract_string(raw.payload, '$.content[0].text') AS content
+    json_extract_string(raw.payload, '$.role') AS role,
+    string_agg(json_extract_string(chunk.value, '$.text'), '' ORDER BY CAST(chunk.key AS INTEGER)) AS content
   FROM raw
   LEFT JOIN meta USING (filename)
+  CROSS JOIN json_each(raw.payload, '$.content') AS chunk
   WHERE raw.type = 'response_item'
     AND json_extract_string(raw.payload, '$.role') IN ('user', 'assistant')
+    AND json_extract_string(chunk.value, '$.text') IS NOT NULL
+  GROUP BY ALL
 )
 SELECT project
 FROM messages
@@ -155,6 +177,24 @@ WHERE '${keyword_sql}' <> ''
   AND ($predicate)
 ORDER BY project;
 SQL
+}
+
+query_available_sources() {
+    local cwd="$1"
+    local keyword="${2-needle}"
+    local has_codex=0
+    local has_claude=0
+
+    find "$TEST_HOME/.codex/sessions" -type f -name '*.jsonl' -print -quit 2>/dev/null | grep -q . && has_codex=1
+    find "$TEST_HOME/.claude/projects" -type f -name '*.jsonl' -print -quit 2>/dev/null | grep -q . && has_claude=1
+
+    if [ "$has_codex" -eq 1 ]; then
+        query_codex_projects "$(build_codex_scope_predicate "$cwd")" "$keyword" | normalize_project_rows | sed 's/^/codex,/'
+    fi
+
+    if [ "$has_claude" -eq 1 ]; then
+        query_claude_projects "$(build_claude_scope_predicate "$cwd")" "$keyword" | normalize_project_rows | sed 's/^/claude,/'
+    fi
 }
 
 query_claude_projects() {
@@ -179,7 +219,7 @@ SQL
 }
 
 normalize_project_rows() {
-    tail -n +2 | sed 's/^"//; s/"$//'
+    tail -n +2 | sed 's/^"//; s/"$//' | awk '!seen[$0]++'
 }
 
 mkdir -p "$TEST_HOME/.codex/sessions/2026/03/31" "$TEST_HOME/.claude/projects"
@@ -220,6 +260,7 @@ write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/underscore-near.jsonl
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-keyword.jsonl" "$REPO_MAIN" "o'hare keyword"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-path.jsonl" "$REPO_QUOTE_SUBDIR" "needle quote path"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/quoted-content.jsonl" "$REPO_MAIN" "double \"quote\" keyword"
+write_codex_multichunk_session "$TEST_HOME/.codex/sessions/2026/03/31/later-chunk.jsonl" "$REPO_MAIN" "prefix only" "needle later chunk"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/literal-percent.jsonl" "$REPO_MAIN" "100% literal"
 write_codex_session "$TEST_HOME/.codex/sessions/2026/03/31/wildcard-percent.jsonl" "$REPO_WORKTREE" "100X broadening"
 
@@ -337,6 +378,46 @@ if [ "$DOUBLE_QUOTE_CLAUDE" != "$EXPECTED_DOUBLE_QUOTE_CLAUDE" ]; then
     printf '%s\n' "$EXPECTED_DOUBLE_QUOTE_CLAUDE"
     echo "Got:"
     printf '%s\n' "$DOUBLE_QUOTE_CLAUDE"
+    exit 1
+fi
+
+LATER_CHUNK_CODEX="$(query_codex_projects "$(build_codex_scope_predicate "$REPO_MAIN")" "later chunk" | normalize_project_rows)"
+EXPECTED_LATER_CHUNK_CODEX="$(printf '%s\n' "$REPO_MAIN")"
+
+if [ "$LATER_CHUNK_CODEX" != "$EXPECTED_LATER_CHUNK_CODEX" ]; then
+    echo "ERROR: Codex query missed a keyword stored outside the first content chunk"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_LATER_CHUNK_CODEX"
+    echo "Got:"
+    printf '%s\n' "$LATER_CHUNK_CODEX"
+    exit 1
+fi
+
+mv "$TEST_HOME/.claude" "$TEST_HOME/.claude.off"
+CODEX_ONLY_AVAILABLE="$(query_available_sources "$REPO_SUBDIR" | sort)"
+EXPECTED_CODEX_ONLY_AVAILABLE="$(printf 'codex,%s\n' "$REPO_MAIN" "$REPO_SUBDIR" "$REPO_WORKTREE" | sort)"
+mv "$TEST_HOME/.claude.off" "$TEST_HOME/.claude"
+
+if [ "$CODEX_ONLY_AVAILABLE" != "$EXPECTED_CODEX_ONLY_AVAILABLE" ]; then
+    echo "ERROR: available-source query did not stay within Codex logs when Claude logs were absent"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_CODEX_ONLY_AVAILABLE"
+    echo "Got:"
+    printf '%s\n' "$CODEX_ONLY_AVAILABLE"
+    exit 1
+fi
+
+mv "$TEST_HOME/.codex" "$TEST_HOME/.codex.off"
+CLAUDE_ONLY_AVAILABLE="$(query_available_sources "$REPO_SUBDIR" | sort)"
+EXPECTED_CLAUDE_ONLY_AVAILABLE="$(printf 'claude,%s\n' "$(slugify_project "$REPO_MAIN")" "$(slugify_project "$REPO_WORKTREE")" | sort)"
+mv "$TEST_HOME/.codex.off" "$TEST_HOME/.codex"
+
+if [ "$CLAUDE_ONLY_AVAILABLE" != "$EXPECTED_CLAUDE_ONLY_AVAILABLE" ]; then
+    echo "ERROR: available-source query did not stay within Claude logs when Codex logs were absent"
+    echo "Expected:"
+    printf '%s\n' "$EXPECTED_CLAUDE_ONLY_AVAILABLE"
+    echo "Got:"
+    printf '%s\n' "$CLAUDE_ONLY_AVAILABLE"
     exit 1
 fi
 
