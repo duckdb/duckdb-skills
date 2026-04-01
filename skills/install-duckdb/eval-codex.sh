@@ -16,7 +16,15 @@ KEEP_TEMP="${KEEP_TEMP:-0}"
 PASS=0
 FAIL=0
 TIMINGS=()
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/duckdb-skills-codex-eval.XXXXXX")"
+TMP_ROOT=""
+if ! TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/duckdb-skills-codex-eval.XXXXXX")"; then
+    echo "ERROR: failed to create temp directory for Codex eval." >&2
+    exit 1
+fi
+if [ ! -d "$TMP_ROOT" ]; then
+    echo "ERROR: temp directory was not created: $TMP_ROOT" >&2
+    exit 1
+fi
 
 cleanup() {
     if [ "$KEEP_TEMP" = "1" ]; then
