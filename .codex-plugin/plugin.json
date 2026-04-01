@@ -1,6 +1,6 @@
 {
   "name": "duckdb-skills",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "DuckDB-powered skills for Codex: read any data file, attach and query DuckDB databases, search DuckDB and DuckLake docs, search past Codex or Claude Code session logs, and install or update DuckDB extensions.",
   "author": {
     "name": "duckdb",
