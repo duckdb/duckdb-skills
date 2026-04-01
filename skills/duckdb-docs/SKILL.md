@@ -40,7 +40,7 @@ There are two search indexes available:
 
 | Index | Remote URL | Local cache filename | Versions | Use when |
 |-------|-----------|---------------------|----------|----------|
-| **DuckDB docs + blog** | `https://duckdb.org/data/docs-search.duckdb` | `duckdb-docs.duckdb` | `stable`, `current`, `blog` | Default — any DuckDB question |
+| **DuckDB docs + blog** | `https://duckdb.org/data/docs-search.duckdb` | `duckdb-docs.duckdb` | `lts`, `current`, `blog` | Default — any DuckDB question |
 | **DuckLake docs** | `https://ducklake.select/data/docs-search.duckdb` | `ducklake-docs.duckdb` | `stable`, `preview` | Query mentions DuckLake, catalogs, or DuckLake-specific features |
 
 Both indexes share the same schema:
@@ -55,7 +55,7 @@ Both indexes share the same schema:
 | `version` | `VARCHAR` | See table above |
 | `text` | `TEXT` | Full markdown of the chunk |
 
-By default, search **DuckDB docs** and filter to `version = 'stable'`. Use different versions when:
+By default, search **DuckDB docs** and filter to `version = 'lts'`. Use different versions when:
 
 - The user explicitly asks about `current`/nightly features → `version = 'current'`
 - The user asks about a blog post or wants background/motivation → `version = 'blog'`
