@@ -1,14 +1,73 @@
 # duckdb-skills
 
-A [Claude Code](https://claude.ai/code) plugin that adds DuckDB-powered skills for data exploration and session memory.
+A plugin bundle for [Claude Code](https://claude.ai/code) and
+[Codex](https://developers.openai.com/codex/plugins) that adds DuckDB-powered skills for data
+exploration and session memory.
 
 ## Installation
 
-### From the Discover tab (coming soon)
+### Codex (local marketplace install)
+
+This repo includes a Codex plugin manifest at `.codex-plugin/plugin.json`.
+
+Codex supports installing local plugins through the plugin directory and a local marketplace. See
+the official docs for [Plugins](https://developers.openai.com/codex/plugins) and
+[Build plugins](https://developers.openai.com/codex/plugins/build).
+
+One simple setup is a personal marketplace:
+
+```bash
+# 1. Clone the repo where Codex can load local plugins from
+mkdir -p ~/.codex/plugins
+git clone https://github.com/duckdb/duckdb-skills.git ~/.codex/plugins/duckdb-skills
+
+# 2. Create the personal marketplace directory
+mkdir -p ~/.agents/plugins
+```
+
+Then add or update `~/.agents/plugins/marketplace.json` with an entry for the plugin. If you
+already have a personal marketplace file, merge the plugin entry into its `plugins` array instead
+of overwriting the file.
+
+```json
+{
+  "name": "local-plugins",
+  "interface": {
+    "displayName": "Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "duckdb-skills",
+      "source": {
+        "source": "local",
+        "path": "./.codex/plugins/duckdb-skills"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
+```
+
+Then restart Codex, open the plugin directory, and install the plugin:
+
+```text
+codex
+/plugins
+```
+
+After installation, start a new thread and either describe the task directly or type `@` to invoke
+the plugin or one of its bundled skills explicitly.
+
+### Claude Code
+#### From the Discover tab (coming soon)
 
 We are working on submitting this plugin to the official Anthropic marketplace. Once listed, it will appear in the **Discover** tab when you run `/plugin` inside Claude Code.
 
-### From GitHub (available now)
+#### From GitHub (available now)
 
 Add the repository as a plugin source and install:
 
@@ -21,7 +80,7 @@ Add the repository as a plugin source and install:
 
 This registers the GitHub repo as a marketplace and installs the plugin. Skills will be available as `/duckdb-skills:<skill-name>` in all future sessions.
 
-### Updating
+#### Updating
 
 To pull the latest version, update the marketplace first and then the plugin:
 
@@ -31,6 +90,8 @@ To pull the latest version, update the marketplace first and then the plugin:
 ```
 
 ## Skills
+
+Examples below use the Claude Code slash-command form. In Codex, invoke the same installed skill through the plugin by dropping the leading slash, for example `duckdb-skills:query SELECT 42` or `duckdb-skills:read-file variants.parquet what columns does it have?`.
 
 ### `attach-db`
 Attach a DuckDB database file for interactive querying. Explores the schema (tables, columns, row counts) and writes a SQL state file so all other skills can restore the session automatically. You can choose to store state in the project directory (`.duckdb-skills/state.sql`) or in your home directory (`~/.duckdb-skills/<project>/state.sql`).
@@ -68,7 +129,8 @@ Search DuckDB and DuckLake documentation and blog posts using full-text search a
 ```
 
 ### `read-memories`
-Search past Claude Code session logs to recover context from previous conversations — decisions made, patterns established, open TODOs. Offloads large result sets to a temporary DuckDB file for interactive drill-down.
+Search past Codex or Claude Code session logs to recover context from previous conversations —
+decisions made, patterns established, open TODOs.
 
 ```
 /duckdb-skills:read-memories duckdb --here
@@ -116,6 +178,24 @@ You can test individual skills directly:
 ```
 
 **Prerequisites:** DuckDB CLI must be installed. If it isn't, the skills will offer to install it via `/duckdb-skills:install-duckdb`.
+
+### Codex local development
+
+For Codex, clone or copy the plugin into a local plugins directory and point a marketplace entry at
+it, following the official
+[Build plugins](https://developers.openai.com/codex/plugins/build) guide. The plugin manifest is
+already included at `.codex-plugin/plugin.json`, and the skills live under `./skills/`.
+
+For a repository-local smoke test of the Codex install path, first install the plugin in Codex,
+point `TARGET_HOME` at that initialized Codex home, and then run:
+
+```bash
+TARGET_HOME=/path/to/codex-home bash skills/install-duckdb/eval-codex.sh
+```
+
+This exercises `duckdb-skills:install-duckdb` through `codex exec` against the target Codex home.
+The eval uses that home for plugin resolution and extension install/update checks, so use a
+disposable Codex home if you want isolation.
 
 ## How the skills work together
 
