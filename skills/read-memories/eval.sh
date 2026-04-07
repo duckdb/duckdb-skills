@@ -71,26 +71,12 @@ build_codex_scope_predicate() {
 
 build_claude_scope_predicate() {
     local cwd="$1"
-    local project_root
-    local predicate=""
+    local slug
+    local slug_sql
 
-    project_root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")"
-
-    while IFS= read -r root; do
-        local slug slug_sql
-        [ -z "$root" ] && continue
-        slug="$(slugify_project "$root")"
-        slug_sql="$(escape_sql_literal "$slug")"
-        [ -n "$predicate" ] && predicate="$predicate OR "
-        predicate="${predicate}(project = '${slug_sql}')"
-    done < <(
-        {
-            printf '%s\n' "$project_root"
-            git -C "$project_root" worktree list --porcelain 2>/dev/null | awk '/^worktree / {print substr($0, 10)}'
-        } | awk '!seen[$0]++'
-    )
-
-    printf '%s\n' "${predicate:-FALSE}"
+    slug="$(slugify_project "$cwd")"
+    slug_sql="$(escape_sql_literal "$slug")"
+    printf "(project = '%s')\n" "$slug_sql"
 }
 
 write_codex_session() {
@@ -287,10 +273,10 @@ if [ "$CODEX_PROJECTS" != "$EXPECTED_CODEX" ]; then
 fi
 
 CLAUDE_PROJECTS="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" | normalize_project_rows)"
-EXPECTED_CLAUDE="$(printf '%s\n' "$(slugify_project "$REPO_MAIN")" "$(slugify_project "$REPO_WORKTREE")" | sort)"
+EXPECTED_CLAUDE="$(printf '%s\n' "$(slugify_project "$REPO_SUBDIR")")"
 
 if [ "$CLAUDE_PROJECTS" != "$EXPECTED_CLAUDE" ]; then
-    echo "ERROR: Claude --here scope did not keep the expected exact project/worktree matches"
+    echo "ERROR: Claude --here scope did not keep the expected exact current-project match"
     echo "Expected:"
     printf '%s\n' "$EXPECTED_CLAUDE"
     echo "Got:"
@@ -409,7 +395,7 @@ fi
 
 mv "$TEST_HOME/.codex" "$TEST_HOME/.codex.off"
 CLAUDE_ONLY_AVAILABLE="$(query_available_sources "$REPO_SUBDIR" | sort)"
-EXPECTED_CLAUDE_ONLY_AVAILABLE="$(printf 'claude,%s\n' "$(slugify_project "$REPO_MAIN")" "$(slugify_project "$REPO_WORKTREE")" | sort)"
+EXPECTED_CLAUDE_ONLY_AVAILABLE="$(printf 'claude,%s\n' "$(slugify_project "$REPO_SUBDIR")")"
 mv "$TEST_HOME/.codex.off" "$TEST_HOME/.codex"
 
 if [ "$CLAUDE_ONLY_AVAILABLE" != "$EXPECTED_CLAUDE_ONLY_AVAILABLE" ]; then
@@ -453,7 +439,7 @@ if [ "$LITERAL_PERCENT_CODEX" != "$EXPECTED_LITERAL_PERCENT_CODEX" ]; then
     exit 1
 fi
 
-LITERAL_PERCENT_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" "100%" | normalize_project_rows)"
+LITERAL_PERCENT_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_MAIN")" "100%" | normalize_project_rows)"
 EXPECTED_LITERAL_PERCENT_CLAUDE="$(printf '%s\n' "$(slugify_project "$REPO_MAIN")")"
 
 if [ "$LITERAL_PERCENT_CLAUDE" != "$EXPECTED_LITERAL_PERCENT_CLAUDE" ]; then
@@ -465,7 +451,7 @@ if [ "$LITERAL_PERCENT_CLAUDE" != "$EXPECTED_LITERAL_PERCENT_CLAUDE" ]; then
     exit 1
 fi
 
-ASSISTANT_FALSE_POSITIVE_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_SUBDIR")" "assistant" | normalize_project_rows)"
+ASSISTANT_FALSE_POSITIVE_CLAUDE="$(query_claude_projects "$(build_claude_scope_predicate "$REPO_MAIN")" "assistant" | normalize_project_rows)"
 
 if [ -n "$ASSISTANT_FALSE_POSITIVE_CLAUDE" ]; then
     echo "ERROR: Claude query matched role metadata instead of message content"
@@ -475,4 +461,4 @@ if [ -n "$ASSISTANT_FALSE_POSITIVE_CLAUDE" ]; then
     exit 1
 fi
 
-echo "PASS: read-memories --here keeps same-project roots and excludes unrelated repos"
+echo "PASS: read-memories --here keeps Codex repo scope, Claude current-project scope, and excludes unrelated repos"
