@@ -21,6 +21,7 @@ with enriched context.
   - Current only (`--here`): `$HOME/.claude/projects/$(echo "$PWD" | sed 's|[/_]|-|g')/*.jsonl`
 - Codex search path: `$HOME/.codex/sessions/*/*/*/*.jsonl`
 - For Codex `--here`, resolve `<PROJECT_ROOT>` with `git rev-parse --show-toplevel 2>/dev/null || echo "$PWD"` and filter rows with `project = '<PROJECT_ROOT>' OR starts_with(project, '<PROJECT_ROOT>/')`.
+- Before substituting `<SEARCH_PATH>`, `<KEYWORD>`, or `<PROJECT_ROOT>` into SQL string literals, escape single quotes by doubling them.
 
 ## Step 2 — Query Claude Code
 
