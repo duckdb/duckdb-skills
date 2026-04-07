@@ -37,18 +37,20 @@ LOAD httpfs;
 
 ## Step 2 — Determine what the URL points to
 
-If the URL looks like a **directory or bucket** (no file extension, or ends with `/`), list its contents:
+If the URL looks like a **directory or bucket** (no file extension, or ends with `/`), list its contents with sizes:
 
 ```bash
 duckdb -c "
 LOAD httpfs;
 <SECRET_SETUP>
-SELECT file, (size / 1024 / 1024)::DECIMAL(10,2) AS size_mb
-FROM glob('<URL>/*')
-ORDER BY file
+SELECT filename, (size / 1024 / 1024)::DECIMAL(10,1) AS size_mb, last_modified
+FROM read_blob('<URL>/*')
+ORDER BY filename
 LIMIT 50;
 "
 ```
+
+Note: only select `filename`, `size`, `last_modified` — never select `content`, which would download the actual files.
 
 If the URL points to a **specific file or glob pattern** (has a file extension or contains `*`), preview it:
 
@@ -62,14 +64,17 @@ FROM '<URL>' LIMIT 20;
 "
 ```
 
-For **Parquet files**, you can get metadata without reading the data:
+For **Parquet files**, get row counts and sizes from metadata (no data download):
 
 ```bash
 duckdb -c "
 LOAD httpfs;
 <SECRET_SETUP>
-SELECT file_name, num_rows, total_compressed_size / 1024 / 1024 AS compressed_mb
-FROM parquet_metadata('<URL>');
+SELECT file_name,
+       sum(row_group_num_rows) AS total_rows,
+       (sum(row_group_compressed_bytes) / 1024 / 1024)::DECIMAL(10,1) AS compressed_mb
+FROM parquet_metadata('<URL>')
+GROUP BY file_name;
 "
 ```
 
