@@ -20,18 +20,23 @@ if ! grep -Eq 'Examples below use the Claude Code slash-command form\..*`duckdb-
     exit 1
 fi
 
-if grep -Eq '<(KEYWORD_SQL|CODEX_SCOPE_PREDICATE|CLAUDE_SCOPE_PREDICATE)>' "$ROOT/skills/read-memories/SKILL.md"; then
-    echo "ERROR: read-memories should interpolate shell variables directly instead of leaving placeholder tokens in the SQL snippets."
+if ! grep -Fq '$HOME/.claude/projects/*/*.jsonl' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories must keep the Claude log path explicit."
     exit 1
 fi
 
-if ! grep -Eq 'HAS_CODEX.*Step 2.*skip directly to Step 3' "$ROOT/skills/read-memories/SKILL.md"; then
-    echo "ERROR: read-memories must explicitly gate the Codex preview query on HAS_CODEX."
+if ! grep -Fq '$HOME/.codex/sessions/*/*/*/*.jsonl' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories must keep the Codex log path explicit."
     exit 1
 fi
 
-if ! grep -Eq 'HAS_CLAUDE.*Step 3.*skip it' "$ROOT/skills/read-memories/SKILL.md"; then
-    echo "ERROR: read-memories must explicitly gate the Claude preview query on HAS_CLAUDE."
+if ! grep -Fq 'For Codex `--here`' "$ROOT/skills/read-memories/SKILL.md" || ! grep -Fq '<PROJECT_ROOT>' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories must keep the Codex --here guidance explicit."
+    exit 1
+fi
+
+if ! grep -Fq 'Claude Code search paths:' "$ROOT/skills/read-memories/SKILL.md" || ! grep -Fq 'Current only (`--here`):' "$ROOT/skills/read-memories/SKILL.md"; then
+    echo "ERROR: read-memories must keep the Claude --here guidance explicit."
     exit 1
 fi
 

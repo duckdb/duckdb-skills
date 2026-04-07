@@ -130,8 +130,7 @@ Search DuckDB and DuckLake documentation and blog posts using full-text search a
 
 ### `read-memories`
 Search past Codex or Claude Code session logs to recover context from previous conversations —
-decisions made, patterns established, open TODOs. Returns bounded previews first, then offloads
-full drill-down to a temporary DuckDB file when needed.
+decisions made, patterns established, open TODOs.
 
 ```
 /duckdb-skills:read-memories duckdb --here
