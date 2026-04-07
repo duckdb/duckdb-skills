@@ -39,6 +39,7 @@ For spatial function syntax, read `references/functions.md`.
 Always start with:
 ```sql
 LOAD spatial;
+SET geometry_always_xy = true;
 ```
 
 Add extensions as needed:
@@ -49,11 +50,14 @@ Add extensions as needed:
 
 **bbox filtering first** — When querying Overture, always filter on `bbox.xmin/xmax/ymin/ymax` before any spatial function. This uses Parquet predicate pushdown and avoids downloading the full dataset.
 
-**Use spheroid functions for real-world distances** — `ST_Distance_Spheroid` returns meters on the WGS84 ellipsoid. Plain `ST_Distance` uses planar coordinates and gives meaningless results for lat/lng.
+**Always set `geometry_always_xy = true`** — This ensures all spatial functions interpret coordinates as longitude, latitude (the standard for Overture, GeoJSON, and most data sources). Without it, spheroid functions assume latitude first and return wrong results.
+
+**Use spheroid functions for real-world distances** — `ST_Distance_Spheroid` returns meters on the WGS84 ellipsoid. Plain `ST_Distance` uses planar coordinates and gives meaningless results for lat/lng. **Important:** spheroid functions (`ST_Distance_Spheroid`, `ST_Area_Spheroid`, etc.) require `POINT_2D` inputs, not generic `GEOMETRY`. Overture geometry columns are typed `GEOMETRY('OGC:CRS84')` and cannot be cast directly. Extract coordinates first:
+```sql
+ST_Point(ST_X(geometry), ST_Y(geometry))::POINT_2D
+```
 
 **CSV with lat/lng needs conversion** — `ST_Point(longitude, latitude)` (longitude first). This is the most common gotcha.
-
-**Set axis order for output** — Before writing KML or other formats: `SET geometry_always_xy = true;`
 
 Run the query in a single bash call:
 

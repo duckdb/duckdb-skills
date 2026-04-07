@@ -107,7 +107,10 @@ Always filter on bbox first, then apply additional filters.
 ### Find places by category near a point
 ```sql
 SELECT names.primary, categories.primary, confidence,
-       ST_Distance_Spheroid(geometry, ST_Point(-73.985, 40.748)) AS dist_m
+       ST_Distance_Spheroid(
+         ST_Point(ST_X(geometry), ST_Y(geometry))::POINT_2D,
+         ST_Point(-73.985, 40.748)::POINT_2D
+       ) AS dist_m
 FROM read_parquet('s3://overturemaps-us-west-2/release/2026-03-18.0/theme=places/type=place/*')
 WHERE bbox.xmin BETWEEN -74.01 AND -73.96
   AND bbox.ymin BETWEEN 40.72 AND 40.77
@@ -128,13 +131,19 @@ WHERE bbox.xmin BETWEEN -122.75 AND -122.55
 ```sql
 -- Find nearest Overture place to each row in user's CSV
 SELECT u.*, p.names.primary AS nearest_place, p.categories.primary AS category,
-       ST_Distance_Spheroid(ST_Point(u.longitude, u.latitude), p.geometry) AS dist_m
+       ST_Distance_Spheroid(
+         ST_Point(u.longitude, u.latitude)::POINT_2D,
+         ST_Point(ST_X(p.geometry), ST_Y(p.geometry))::POINT_2D
+       ) AS dist_m
 FROM 'user_locations.csv' u
 CROSS JOIN LATERAL (
     SELECT * FROM read_parquet('s3://overturemaps-us-west-2/release/2026-03-18.0/theme=places/type=place/*')
     WHERE bbox.xmin BETWEEN u.longitude - 0.01 AND u.longitude + 0.01
       AND bbox.ymin BETWEEN u.latitude - 0.01 AND u.latitude + 0.01
-    ORDER BY ST_Distance_Spheroid(geometry, ST_Point(u.longitude, u.latitude))
+    ORDER BY ST_Distance_Spheroid(
+      ST_Point(ST_X(geometry), ST_Y(geometry))::POINT_2D,
+      ST_Point(u.longitude, u.latitude)::POINT_2D
+    )
     LIMIT 1
 ) p;
 ```

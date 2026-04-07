@@ -4,6 +4,7 @@
 
 ```sql
 INSTALL spatial; LOAD spatial;
+SET geometry_always_xy = true;  -- ensures lng/lat order for all spatial functions
 -- For H3 hex binning:
 INSTALL h3 FROM community; LOAD h3;
 ```
@@ -49,10 +50,15 @@ Set `geometry_always_xy = true` before writing to avoid axis order issues with K
 ### Distance & proximity
 | Function | Description |
 |----------|-------------|
-| `ST_Distance(a, b)` | Planar distance (units depend on CRS) |
-| `ST_Distance_Spheroid(a, b)` | Geodesic distance in **meters** (WGS84) |
+| `ST_Distance(a, b)` | Planar distance (units depend on CRS). Accepts any `GEOMETRY`. |
+| `ST_Distance_Spheroid(a, b)` | Geodesic distance in **meters** (WGS84). **Requires `POINT_2D` inputs** — see note below. |
 | `ST_DWithin(a, b, dist)` | Is planar distance ≤ dist? |
-| `ST_DWithin_Spheroid(a, b, dist)` | Is geodesic distance ≤ dist meters? |
+| `ST_DWithin_Spheroid(a, b, dist)` | Is geodesic distance ≤ dist meters? **Requires `POINT_2D` inputs.** |
+
+> **`POINT_2D` requirement:** Spheroid functions (`ST_Distance_Spheroid`, `ST_Area_Spheroid`, `ST_Length_Spheroid`, `ST_DWithin_Spheroid`) only accept `POINT_2D`, not generic `GEOMETRY`. Overture Maps and `ST_Read()` return `GEOMETRY` types that cannot be cast directly. Extract and rebuild:
+> ```sql
+> ST_Point(ST_X(geometry), ST_Y(geometry))::POINT_2D
+> ```
 
 ### Spatial relationships
 | Function | Returns true when |
