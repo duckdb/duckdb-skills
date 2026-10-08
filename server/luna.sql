@@ -1,21 +1,7 @@
--- luna.sql: Lunas are rows. agents.work is what needs doing; agents.luna_runs is what the Lunas did.
+-- luna.sql: Lunas are rows. agents.luna_runs is what the Lunas did; agents.work is what still needs doing.
 -- The launch is one cron line (cron.sql): codex exec with the prompt "SELECT * FROM agents.work LIMIT 1".
 -- The Luna runs that on dev, gets its row, and works inside DuckDB (shellfs, duck_tails, read_json on GitHub).
-
--- One row per open PR of mine whose CI is red because of the PR (open_prs.sql), minus PRs whose worktree
--- already exists (a Luna is, or was, on it). The task column is the whole brief.
--- open_prs.sql fills the table hourly; on a fresh boot it has to exist, empty, for the view to bind.
-CREATE TABLE IF NOT EXISTS open_prs_waiting (checked_at TIMESTAMPTZ, whose_move VARCHAR, idle_days BIGINT, repo VARCHAR,
-    number INTEGER, title VARCHAR, ci VARCHAR, base_ci VARCHAR, mergeable VARCHAR, last_reviewer VARCHAR);
-CREATE OR REPLACE VIEW agents.work AS
-SELECT repo, number, title, idle_days,
-       '/Users/aloksubbarao/worktrees/luna-ci/' || replace(repo, '/', '-') || '-' || number AS worktree,
-       format('CI is red on {0} PR #{1} ({2}). Clone it into {3} and check the PR out. Read the PR, its failing checks and job logs as rows (read_json over api.github.com with GITHUB_TOKEN=$(gh auth token --user asubbarao); duck_hunt for logs; duck_tails for the repo). If the base branch fails the same way, a fix exists on another branch, or the failure is not this PR''s, report and exit without editing. Otherwise the smallest in-scope fix, tested, exactly one commit ending with the trailer "Co-Authored-By: Codex Luna 5.6 <noreply@openai.com>", pushed to the PR head branch only, never --force. No PR comments, no opening/closing/merging. Final message: root cause, files and commit sha, what you tested, pushed or not, what you did NOT change.',
-              repo, number, title, '/Users/aloksubbarao/worktrees/luna-ci/' || replace(repo, '/', '-') || '-' || number) AS task
-FROM open_prs_waiting
-WHERE whose_move = 'mine: CI red' AND NOT starts_with(repo, 'inframe-risk/')
-  AND NOT path_exists('/Users/aloksubbarao/worktrees/luna-ci/' || replace(repo, '/', '-') || '-' || number)
-ORDER BY idle_days DESC;
+-- Boots after open_prs.sql, whose CTAS is the only definition of open_prs_waiting.
 
 -- Every Luna worktree: branch and last commit from duck_tails, activity from the live codex sessions (agent_data).
 CREATE OR REPLACE VIEW agents.luna_runs AS
@@ -40,3 +26,18 @@ FROM head h
 LEFT JOIN commits c USING (worktree)
 LEFT JOIN live v USING (worktree)
 ORDER BY c.last_commit DESC;
+
+-- One row per open PR of mine whose CI is red because of the PR (open_prs.sql), minus the ones a Luna
+-- already has a worktree for (luna_runs). The task column is the whole brief.
+CREATE OR REPLACE VIEW agents.work AS
+WITH red AS (
+  SELECT repo, number, title, idle_days,
+         format('/Users/aloksubbarao/worktrees/luna-ci/{0}-{1}', replace(repo, '/', '-'), number) AS worktree
+  FROM open_prs_waiting
+  WHERE whose_move = 'mine: CI red' AND NOT starts_with(repo, 'inframe-risk/')
+)
+SELECT repo, number, title, idle_days, worktree,
+       format('CI is red on {0} PR #{1} ({2}). Clone it into {3} and check the PR out. Read the PR, its failing checks and job logs as rows (read_json over api.github.com with GITHUB_TOKEN=$(gh auth token --user asubbarao); duck_hunt for logs; duck_tails for the repo). If the base branch fails the same way, a fix exists on another branch, or the failure is not this PR''s, report and exit without editing. Otherwise the smallest in-scope fix, tested, exactly one commit ending with the trailer "Co-Authored-By: Codex Luna 5.6 <noreply@openai.com>", pushed to the PR head branch only, never --force. No PR comments, no opening/closing/merging. Final message: root cause, files and commit sha, what you tested, pushed or not, what you did NOT change.',
+              repo, number, title, worktree) AS task
+FROM red ANTI JOIN agents.luna_runs USING (worktree)
+ORDER BY idle_days DESC;
