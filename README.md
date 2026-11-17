@@ -115,7 +115,7 @@ You can test individual skills directly:
 /duckdb-skills:query SELECT 42
 ```
 
-**Prerequisites:** DuckDB CLI must be installed. If it isn't, the skills will offer to install it via `/duckdb-skills:install-duckdb`; with [uv](https://docs.astral.sh/uv/) present, `uv tool install duckdb-cli` installs it from PyPI on any platform.
+**Prerequisites:** DuckDB CLI must be installed. If it isn't, the skills will offer to install it via `/duckdb-skills:install-duckdb`.
 
 ## How the skills work together
 
