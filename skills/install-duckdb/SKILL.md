@@ -23,13 +23,14 @@ DUCKDB=$(command -v duckdb)
 If not found, tell the user:
 
 > **DuckDB is not installed.** Install it first with one of:
+> - any platform with [uv](https://docs.astral.sh/uv/): `uv tool install duckdb-cli` (no root needed)
 > - macOS:   `brew install duckdb`
 > - Linux:   `curl -fsSL https://install.duckdb.org | sh`
 > - Windows: `winget install DuckDB.cli`
 >
 > Then re-run `/duckdb-skills:install-duckdb`.
 
-Stop if DuckDB is not found.
+Stop if DuckDB is not found. In a sandbox where none of these is allowed but `uv` is present, `uvx duckdb-cli` runs the CLI from PyPI without installing it; use it in place of `duckdb` in every command below.
 
 ## Step 2 — Check for --update flag
 
@@ -63,7 +64,8 @@ LATEST=$(curl -fsSL https://duckdb.org/data/latest_stable_version.txt)
 - If `CURRENT` != `LATEST` → ask the user:
   > **DuckDB CLI is outdated** (installed: `CURRENT`, latest: `LATEST`). Upgrade now?
 
-  If the user agrees, detect the platform and run the appropriate upgrade command:
+  If the user agrees, detect how it was installed and run the appropriate upgrade command:
+  - installed with uv (`uv tool list` names `duckdb-cli`): `uv tool upgrade duckdb-cli`
   - macOS (`brew` available): `brew upgrade duckdb`
   - Linux: `curl -fsSL https://install.duckdb.org | sh`
   - Windows: `winget upgrade DuckDB.cli`
